@@ -45,11 +45,17 @@ const ServerInfo = ({
     return () => clearTimeout(refreshCooldown);
   }, [timer])
 
-  ipcRenderer.on("status", function (event, data) {
-    if (data.status === "fivem_invalid") {
-      setFivemInvalidAction(true)
+  useEffect(() => {
+    const onStatus = (event, data) => {
+      if (data.status === "fivem_invalid") {
+        setFivemInvalidAction(true)
+      }
     }
-  })
+
+    ipcRenderer.on("status", onStatus)
+
+    return () => ipcRenderer.removeListener("status", onStatus)
+  }, [setFivemInvalidAction])
 
   const onJoinClick = (e, serverAddress) => {
     e.preventDefault()

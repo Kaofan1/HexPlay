@@ -1,4 +1,4 @@
-import React, {useState, useRef, useEffect} from "react"
+import React, {useState, useEffect} from "react"
 import {ipcRenderer} from "electron"
 import Video from 'react-video-renderer'
 
@@ -13,17 +13,22 @@ import Video3 from "../../assets/videos/background/video6.webm"
 import style from "./Background.module.scss"
 
 const Background = () => {
-  const listRef = useRef()
   const [animationActive, setAnimationActive] = useState(true)
 
-  ipcRenderer.on('status', (event, data) => {
-    if (data.status === "window_focus") {
-      setAnimationActive(true)
+  useEffect(() => {
+    const onStatus = (event, data) => {
+      if (data.status === "window_focus") {
+        setAnimationActive(true)
+      }
+      if (data.status === "window_blur") {
+        setAnimationActive(false)
+      }
     }
-    if (data.status === "window_blur") {
-      setAnimationActive(false)
-    }
-  })
+
+    ipcRenderer.on('status', onStatus)
+
+    return () => ipcRenderer.removeListener('status', onStatus)
+  }, [])
 
   const TYPE_IMAGE = "image"
   const TYPE_VIDEO = "video"

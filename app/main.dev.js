@@ -200,7 +200,10 @@ app.on('ready', async () => {
     backgroundColor: "#070b14", // zsynchronizuj z $brand-surface w app/styles/colors.scss
     webPreferences: {
       nodeIntegration: true,
-      enableRemoteModule: true
+      enableRemoteModule: true,
+      // Bez throttlingu Chromium po Alt+Tab potrafi zostawić zamrożoną,
+      // nieprzezroczystą klatkę tła zamiast odświeżyć animację.
+      backgroundThrottling: false
     },
     frame: false,
     resizable: false // @TODO: Until window max/unmax is fixed
@@ -278,6 +281,8 @@ app.on('ready', async () => {
 
   mainWindow.on('focus', () => {
     sendStatusToWindow('window_focus', "Window gained focus.");
+    // Wymusza pełne odświeżenie okna po powrocie z Alt+Tab.
+    mainWindow.webContents.invalidate();
     // Powrót do launchera to dobry moment, żeby sprawdzić nową wersję.
     if (updater) {
       updater.check();
