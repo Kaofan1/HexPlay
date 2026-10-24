@@ -1,14 +1,12 @@
-import {app} from "electron"
+import {app, net} from "electron"
 import log from "electron-log"
 import crypto from "crypto"
 import fs from "fs"
-import https from "https"
 import path from "path"
 
 const RELEASES_URL = "https://api.github.com/repos/Kaofan1/HexPlay/releases/latest"
 const INSTALLER_NAME = "HexPlay-Launcher-Setup.exe"
-const REQUEST_TIMEOUT = 30000
-const MAX_REDIRECTS = 5
+const REQUEST_TIMEOUT = 60000
 const CHECK_COOLDOWN = 2 * 60 * 1000
 
 const parseVersion = raw => String(raw || "").trim().replace(/^v/i, "").split(".").map(part => parseInt(part, 10) || 0)
@@ -30,35 +28,39 @@ const isNewer = (latest, current) => {
   return false
 }
 
-// Proste żądanie HTTPS z obsługą przekierowań (GitHub przekierowuje pliki
-// na release-assets.githubusercontent.com).
-const request = (url, {headers = {}, redirects = 0} = {}) => new Promise((resolve, reject) => {
-  const req = https.get(url, {
-    headers: {
-      "User-Agent": "HexPlay-Launcher",
-      ...headers
-    }
-  }, response => {
-    const {statusCode, headers: responseHeaders} = response
+// Używamy sieci Electrona (Chromium), bo Node 12 w Electronie 8 nie mieści
+// długich nagłówków przekierowania plików z GitHuba.
+const request = (url, {headers = {}, timeout = REQUEST_TIMEOUT} = {}) => new Promise((resolve, reject) => {
+  const clientRequest = net.request({method: "GET", url, redirect: "follow"})
 
-    if ([301, 302, 303, 307, 308].includes(statusCode) && responseHeaders.location && redirects < MAX_REDIRECTS) {
-      response.resume()
-      resolve(request(new URL(responseHeaders.location, url).toString(), {headers, redirects: redirects + 1}))
-      return
-    }
+  Object.keys(headers).forEach(name => clientRequest.setHeader(name, headers[name]))
 
-    if (statusCode !== 200) {
+  const timer = setTimeout(() => {
+    clientRequest.abort()
+    reject(new Error("Przekroczono czas połączenia z GitHubem."))
+  }, timeout)
+
+  clientRequest.on("response", response => {
+    clearTimeout(timer)
+
+    if (response.statusCode !== 200) {
       response.resume()
-      reject(new Error(`GitHub odpowiedział HTTP ${statusCode}`))
+      reject(new Error(`GitHub odpowiedział HTTP ${response.statusCode}`))
       return
     }
 
     resolve(response)
   })
 
-  req.setTimeout(REQUEST_TIMEOUT, () => req.destroy(new Error("Przekroczono czas połączenia z GitHubem.")))
-  req.on("error", reject)
+  clientRequest.on("error", error => {
+    clearTimeout(timer)
+    reject(error)
+  })
+
+  clientRequest.end()
 })
+
+const headerValue = value => (Array.isArray(value) ? value[0] : value)
 
 const readBody = response => new Promise((resolve, reject) => {
   const chunks = []
@@ -70,7 +72,10 @@ const readBody = response => new Promise((resolve, reject) => {
 
 const fetchLatestRelease = async () => {
   const response = await request(RELEASES_URL, {
-    headers: {Accept: "application/vnd.github+json"}
+    headers: {
+      "User-Agent": "HexPlay-Launcher",
+      Accept: "application/vnd.github+json"
+    }
   })
   const release = JSON.parse(await readBody(response))
 
@@ -103,27 +108,37 @@ const sha256 = filePath => new Promise((resolve, reject) => {
 
 const downloadInstaller = async (asset, destination, onProgress) => {
   const response = await request(asset.url, {
-    headers: {Accept: "application/octet-stream"}
+    headers: {
+      "User-Agent": "HexPlay-Launcher",
+      Accept: "application/octet-stream"
+    }
   })
-  const total = Number(response.headers["content-length"]) || asset.size || 0
+  const total = Number(headerValue(response.headers["content-length"])) || asset.size || 0
   const temporaryPath = `${destination}.part`
 
   await fs.promises.mkdir(path.dirname(destination), {recursive: true})
 
-  await new Promise((resolve, reject) => {
-    const stream = fs.createWriteStream(temporaryPath)
-    let received = 0
+  try {
+    await new Promise((resolve, reject) => {
+      const stream = fs.createWriteStream(temporaryPath)
+      let received = 0
 
-    response.on("data", chunk => {
-      received += chunk.length
-      onProgress(received, total)
+      response.on("data", chunk => {
+        received += chunk.length
+        onProgress(received, total)
+      })
+
+      response.on("error", reject)
+      stream.on("error", reject)
+      stream.on("finish", () => stream.close(resolve))
+      response.pipe(stream)
     })
-
-    response.on("error", reject)
-    stream.on("error", reject)
-    stream.on("finish", () => stream.close(resolve))
-    response.pipe(stream)
-  })
+  } catch (error) {
+    if (fs.existsSync(temporaryPath)) {
+      fs.unlinkSync(temporaryPath)
+    }
+    throw error
+  }
 
   const downloadedSize = fs.statSync(temporaryPath).size
 
