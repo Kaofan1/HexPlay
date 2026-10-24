@@ -78,16 +78,31 @@ Przykład serwera:
 `electron-updater` pobiera wydania z GitHuba wskazanego w `package.json` → `build.publish` (skonfigurowane na [`Kaofan1/HexPlay`](https://github.com/Kaofan1/HexPlay)):
 
 ```json
-"publish": [{ "provider": "github", "owner": "Kaofan1", "repo": "HexPlay" }]
+"publish": [{ "provider": "github", "owner": "Kaofan1", "repo": "HexPlay", "releaseType": "release" }]
 ```
 
 Przy pakowaniu electron-builder zapisuje `resources/app-update.yml` w aplikacji — to z niego klient wie, gdzie sprawdzać nową wersję. Aktualizacja pobiera się w tle i instaluje przy restarcie; użytkownik widzi pasek postępu w nagłówku.
 
-Wydanie nowej wersji:
+### Wydanie nowej wersji — jedno polecenie
 
-1. Podbij `version` w `package.json` **i** `app/package.json`.
-2. Ustaw `GH_TOKEN` (token z zakresem `repo`).
-3. `yarn package-win` i wrzuć artefakty z `release/` jako GitHub Release — **wymagane**: `HexPlay Launcher Setup <wersja>.exe`, `latest.yml` i `.blockmap` (bez `latest.yml` klient nie wykryje aktualizacji).
+```bash
+export GH_TOKEN=github_pat_...   # PowerShell: $env:GH_TOKEN = "github_pat_..."
+yarn release patch              # 1.0.0 -> 1.0.1 (albo minor / major / 1.4.2)
+```
+
+Skrypt `internals/scripts/Release.js`:
+
+1. podbija `version` w `package.json`, `app/package.json` i `app/package-lock.json`,
+2. commituje `Release vX.Y.Z`, tworzy tag i wypycha oba na `origin/main`,
+3. buduje (`yarn build`) i publikuje instalator NSIS przez `electron-builder --publish always`,
+4. weryfikuje, że release nie jest draftem i zawiera `latest.yml` + instalator,
+5. uzupełnia nazwę i opis wydania.
+
+Wymagania: gałąź `main`, czyste drzewo robocze, Windows oraz `GH_TOKEN` z **Contents: Read and write**. Push commita i taga korzysta z Twojego skonfigurowanego dostępu do gita (GCM/SSH) — `GH_TOKEN` służy do publikacji release'u. Podgląd planu bez zmian: `yarn release patch --dry-run`.
+
+Publikowany jest sam instalator NSIS (to jego dotyczy auto-update). MSI zbudujesz ręcznie przez `yarn package-win`.
+
+Ręcznie (bez skryptu) potrzebne są trzy assety: `HexPlay-Launcher-Setup-<wersja>.exe`, `latest.yml` i `.blockmap` — bez `latest.yml` klient nie wykryje aktualizacji, a nazwy plików muszą zgadzać się z wpisami w `latest.yml`.
 
 Instalator NSIS (`release/HexPlay Launcher Setup 1.0.0.exe`) jest niepodpisany, więc Windows SmartScreen pokaże ostrzeżenie — podpisanie wymaga certyfikatu code signing.
 
