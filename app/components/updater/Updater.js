@@ -11,7 +11,7 @@ const Updater = () => {
     if (data.status === "update_progress") {
       setNotificationMessage(data.message)
     } else if (data.status === "update_downloaded") {
-      setNotificationMessage("Update available")
+      setNotificationMessage("Dostępna aktualizacja")
       setRestartReady(true)
     } else {
       setNotificationMessage(null)

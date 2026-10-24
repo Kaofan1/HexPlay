@@ -102,9 +102,9 @@ Wymagania: gałąź `main`, czyste drzewo robocze, Windows oraz `GH_TOKEN` z **C
 
 Publikowany jest sam instalator NSIS (to jego dotyczy auto-update). MSI zbudujesz ręcznie przez `yarn package-win`.
 
-Ręcznie (bez skryptu) potrzebne są trzy assety: `HexPlay-Launcher-Setup-<wersja>.exe`, `latest.yml` i `.blockmap` — bez `latest.yml` klient nie wykryje aktualizacji, a nazwy plików muszą zgadzać się z wpisami w `latest.yml`.
+Ręcznie (bez skryptu) potrzebne są trzy assety: `HexPlay-Launcher-Setup.exe`, `latest.yml` i `.blockmap` — bez `latest.yml` klient nie wykryje aktualizacji, a nazwy plików muszą zgadzać się z wpisami w `latest.yml`.
 
-Instalator NSIS (`release/HexPlay Launcher Setup 1.0.0.exe`) jest niepodpisany, więc Windows SmartScreen pokaże ostrzeżenie — podpisanie wymaga certyfikatu code signing.
+Instalator NSIS (`release/HexPlay Launcher Setup.exe`) jest niepodpisany, więc Windows SmartScreen pokaże ostrzeżenie — podpisanie wymaga certyfikatu code signing. Nazwa pliku jest stała (bez wersji); wersję klient odczytuje z `latest.yml` i metadanych aplikacji.
 
 ## Struktura
 

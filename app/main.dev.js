@@ -135,7 +135,7 @@ app.on('ready', async () => {
         const fivemURL = fivemLocationParser(data.payload.command);
         fs.access(fivemURL, fs.F_OK, (err) => {
           if (err) {
-            sendStatusToWindow('fivem_invalid', 'Invalid FiveM location.');
+            sendStatusToWindow('fivem_invalid', 'Nieprawidłowa lokalizacja FiveM.');
             return
           }
 
@@ -205,11 +205,11 @@ app.on('ready', async () => {
   // });
 
   autoUpdater.on('download-progress', progressObj => {
-    sendStatusToWindow('update_progress', `Downloading update (${Math.round(progressObj.percent)}%)`);
+    sendStatusToWindow('update_progress', `Pobieranie aktualizacji (${Math.round(progressObj.percent)}%)`);
   });
 
   autoUpdater.on('update-downloaded', info => {
-    sendStatusToWindow('update_downloaded', 'Update downloaded; will install on restart.');
+    sendStatusToWindow('update_downloaded', 'Aktualizacja pobrana — zainstaluje się po restarcie.');
   });
 
   // mainWindow.webContents.openDevTools(); // @DEBUG: Enables DevTools in production

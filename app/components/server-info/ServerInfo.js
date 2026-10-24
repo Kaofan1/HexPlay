@@ -96,14 +96,14 @@ const ServerInfo = ({
       )}
       <section name="actions" className={serverInfoStyle.section}>
         <div className={serverInfoStyle.title}>
-          <h2>Actions</h2>
+          <h2>Akcje</h2>
         </div>
         <div className={serverInfoStyle.actions}>
           {address && (
             <div className={serverInfoStyle.action}>
               <Button to="/" onClick={e => (online && onJoinClick(e, address))} primary disabled={!online}>
                 <SVG src="./assets/icons/applications/fivem.svg" />
-                <span>Join server</span>
+                <span>Dołącz do serwera</span>
               </Button>
             </div>
           )}
@@ -111,7 +111,7 @@ const ServerInfo = ({
             <div className={serverInfoStyle.action}>
               <Button href={`ts3server://${teamspeak}`}>
                 <SVG src="assets/icons/applications/teamspeak.svg" />
-                <span>Open comms</span>
+                <span>Otwórz komunikację</span>
               </Button>
               {tokovoip && (
                 <div className={serverInfoStyle.description}>
@@ -125,10 +125,10 @@ const ServerInfo = ({
       </section>
       <section name="players" className={serverInfoStyle.section}>
         <div className={serverInfoStyle.title}>
-          <h2>Players {players && `(${players.length}/${players_max})`}</h2>
+          <h2>Gracze {players && `(${players.length}/${players_max})`}</h2>
         </div>
         <div className={serverInfoStyle.players}>
-          {online ? (players ? players : "No players online") : "Server is offline"}
+          {online ? (players ? players : "Brak graczy online") : "Serwer jest offline"}
         </div>
       </section>
     </Fragment>

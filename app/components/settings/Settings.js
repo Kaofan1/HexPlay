@@ -36,7 +36,7 @@ const Settings = ({fivemLocation, fivemInvalid, setFivemLocationAction, setSetti
     <Fragment>
       <section name="fivem-location" className={settingsStyle.section}>
         <div className={settingsStyle.title}>
-          <h2>FiveM location</h2>
+          <h2>Lokalizacja FiveM</h2>
           <div
             className={settingsStyle.action}
             onClick={() => onFivemRestore()}
@@ -59,7 +59,7 @@ const Settings = ({fivemLocation, fivemInvalid, setFivemLocationAction, setSetti
             hidden
           />
           <div className={settingsStyle.hint}>
-            Select a valid FiveM.exe location
+            Wybierz prawidłową lokalizację FiveM.exe
           </div>
         </div>
       </section>
@@ -69,19 +69,19 @@ const Settings = ({fivemLocation, fivemInvalid, setFivemLocationAction, setSetti
           onClick={e => onSaveClick(e)}
           primary
         >
-          <span>Close settings</span>
+          <span>Zamknij ustawienia</span>
         </Button>
       </section>
       <section name="footnotes" className={settingsStyle.section}>
         <div>
-          <span>{`Application version: ${remote.app.getVersion()}`}</span>
+          <span>{`Wersja aplikacji: ${remote.app.getVersion()}`}</span>
         </div>
         <div>
           <span
             className={settingsStyle.credits}
             onClick={() => externalLink("https://github.com/bartosjiri")}
           >
-            {"Developed by"}
+            {"Stworzone przez"}
             <SVG src="./assets/icons/miscellaneous/bartosjiri.svg" />
           </span>
         </div>
