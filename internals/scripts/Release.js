@@ -33,11 +33,12 @@ function fail(message) {
 }
 
 function sh(command, { inherit = false } = {}) {
-  return execSync(command, {
+  const output = execSync(command, {
     cwd: ROOT,
     encoding: 'utf8',
     stdio: inherit ? 'inherit' : 'pipe'
-  }).trim();
+  });
+  return output === null || output === undefined ? '' : String(output).trim();
 }
 
 function readJson(file) {
@@ -214,10 +215,14 @@ async function findRelease(owner, repo, tag) {
 async function main() {
   const args = process.argv.slice(2);
   const dryRun = args.includes('--dry-run');
+  const publishOnly = args.includes('--publish-only');
   const kind = args.find(arg => !arg.startsWith('--'));
 
-  if (!kind) {
-    fail('Użycie: yarn release patch|minor|major|x.y.z [--dry-run]');
+  if (!kind && !publishOnly) {
+    fail(
+      'Użycie: yarn release patch|minor|major|x.y.z [--dry-run]\n' +
+        '       yarn release --publish-only (wznów build i publikację istniejącego taga)'
+    );
   }
 
   const pkg = readJson('package.json');
@@ -232,14 +237,16 @@ async function main() {
     );
   }
 
-  const next = ['patch', 'minor', 'major'].includes(kind)
+  const next = publishOnly
+    ? current
+    : ['patch', 'minor', 'major'].includes(kind)
     ? bumpVersion(current, kind)
     : parseVersion(kind);
 
   if (!next) {
     fail(`Nieznany argument "${kind}". Użyj patch, minor, major albo numeru x.y.z.`);
   }
-  if (compareVersions(next, current) <= 0) {
+  if (!publishOnly && compareVersions(next, current) <= 0) {
     fail(`Nowa wersja ${formatVersion(next)} musi być wyższa niż ${pkg.version}.`);
   }
 
@@ -263,11 +270,19 @@ async function main() {
   if (sh('git remote') === '') {
     fail('Brak remote. Dodaj origin wskazujący na repo GitHub.');
   }
+  let tagExists = false;
   try {
     sh(`git rev-parse -q --verify refs/tags/${tag}`);
-    fail(`Tag ${tag} już istnieje.`);
+    tagExists = true;
   } catch (error) {
-    // Brak tagu, oczekiwane.
+    // Brak tagu.
+  }
+
+  if (publishOnly && !tagExists) {
+    fail(`Tag ${tag} nie istnieje, więc nie ma czego publikować.`);
+  }
+  if (!publishOnly && tagExists) {
+    fail(`Tag ${tag} już istnieje.`);
   }
 
   const publish = (pkg.build && pkg.build.publish && pkg.build.publish[0]) || {};
@@ -292,27 +307,35 @@ async function main() {
   log('2/6', 'Sprawdzam token GitHub');
   await assertTokenCanPublish(owner, repo);
 
-  log('3/6', `Podbijam wersję do ${version}`);
-  for (const file of VERSION_FILES) {
-    if (!fs.existsSync(path.join(ROOT, file))) continue;
-    const json = readJson(file);
-    json.version = version;
-    writeJson(file, json);
-    console.log(`  ${file}: ${version}`);
+  if (publishOnly) {
+    log('3/6', `Pomijam podbijanie wersji, publikuję gotowy tag ${tag}`);
+  } else {
+    log('3/6', `Podbijam wersję do ${version}`);
+    for (const file of VERSION_FILES) {
+      if (!fs.existsSync(path.join(ROOT, file))) continue;
+      const json = readJson(file);
+      json.version = version;
+      writeJson(file, json);
+      console.log(`  ${file}: ${version}`);
+    }
   }
 
-  log('4/6', 'Commituję, taguję i wypycham');
-  sh(`git add ${VERSION_FILES.join(' ')}`);
-  sh(`git commit -m "Release ${tag}"`);
-  sh(`git tag -a ${tag} -m "HexPlay Launcher ${version}"`);
-  try {
-    sh(`git push origin ${BRANCH}`);
-    sh(`git push origin ${tag}`);
-  } catch (error) {
-    fail(
-      'Nie udało się wypchnąć commita/taga. Wersja jest podbita lokalnie. ' +
-        'napraw dostęp do remote i wypchnij ręcznie, potem uruchom build.'
-    );
+  if (publishOnly) {
+    log('4/6', 'Pomijam commit i tag, używam istniejącego taga');
+  } else {
+    log('4/6', 'Commituję, taguję i wypycham');
+    sh(`git add ${VERSION_FILES.join(' ')}`);
+    sh(`git commit -m "Release ${tag}"`);
+    sh(`git tag -a ${tag} -m "HexPlay Launcher ${version}"`);
+    try {
+      sh(`git push origin ${BRANCH}`);
+      sh(`git push origin ${tag}`);
+    } catch (error) {
+      fail(
+        'Nie udało się wypchnąć commita/taga. Wersja jest podbita lokalnie. ' +
+          'napraw dostęp do remote i wypchnij ręcznie, potem uruchom build.'
+      );
+    }
   }
 
   log('5/6', 'Buduję instalator');
@@ -337,28 +360,46 @@ async function main() {
       '(„Więcej informacji” → „Uruchom mimo to”).'
   ].join('\n');
 
-  const created = await githubRequest(`/repos/${owner}/${repo}/releases`, {
-    method: 'POST',
-    body: JSON.stringify({
-      tag_name: tag,
-      name: `HexPlay Launcher ${version}`,
-      draft: true,
-      body: notes
-    })
-  });
+  const existing = await findRelease(owner, repo, tag);
+  let releaseId = existing ? existing.id : null;
 
-  if (!created.ok) {
-    fail(
-      `Nie mogę utworzyć release'u ${tag} (HTTP ${created.status}): ${
-        created.data.message || 'brak szczegółów'
-      }`
+  if (existing) {
+    log('6/6', `Release ${tag} już istnieje, podmieniam instalator`);
+    const oldInstaller = (existing.assets || []).find(
+      asset => asset.name === 'HexPlay-Launcher-Setup.exe'
     );
+    if (oldInstaller) {
+      await githubRequest(
+        `/repos/${owner}/${repo}/releases/assets/${oldInstaller.id}`,
+        { method: 'DELETE' }
+      );
+    }
+  } else {
+    const created = await githubRequest(`/repos/${owner}/${repo}/releases`, {
+      method: 'POST',
+      body: JSON.stringify({
+        tag_name: tag,
+        name: `HexPlay Launcher ${version}`,
+        draft: true,
+        body: notes
+      })
+    });
+
+    if (!created.ok) {
+      fail(
+        `Nie mogę utworzyć release'u ${tag} (HTTP ${created.status}): ${
+          created.data.message || 'brak szczegółów'
+        }`
+      );
+    }
+
+    releaseId = created.data.id;
   }
 
   const uploaded = await uploadAsset(
     owner,
     repo,
-    created.data.id,
+    releaseId,
     installerPath,
     'HexPlay-Launcher-Setup.exe'
   );
@@ -372,7 +413,7 @@ async function main() {
   }
 
   const published = await githubRequest(
-    `/repos/${owner}/${repo}/releases/${created.data.id}`,
+    `/repos/${owner}/${repo}/releases/${releaseId}`,
     { method: 'PATCH', body: JSON.stringify({ draft: false }) }
   );
 
