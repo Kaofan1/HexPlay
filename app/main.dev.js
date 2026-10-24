@@ -17,18 +17,126 @@ import {spawn, exec, execFile, fork} from "child_process";
 import fs from "fs";
 
 import fivemLocationParser from "./utils/parsers/fivemLocationParser";
+import closeFivem from "./utils/fivem-process/closeFivem";
+
+const UPDATE_CHECK_INTERVAL = 10 * 60 * 1000;
+const UPDATE_CHECK_COOLDOWN = 2 * 60 * 1000;
+const FIVEM_CLOSE_TIMEOUT = 15000;
+
+let mainWindow = null;
+
+const sendStatusToWindow = (status, message, extra = {}) => {
+  if (mainWindow) {
+    mainWindow.webContents.send('status', {status, message, ...extra});
+  }
+};
 
 export default class AppUpdater {
   constructor() {
     log.transports.file.level = 'info';
     autoUpdater.logger = log;
+    autoUpdater.autoDownload = true;
+    // Instalacją sterujemy sami, żeby przed nią zdążyć zamknąć FiveM.
+    autoUpdater.autoInstallOnAppQuit = false;
+
+    this.checking = false;
+    this.downloaded = false;
+    this.lastCheck = 0;
+
+    autoUpdater.on('checking-for-update', () => {
+      log.info('Checking for update...');
+    });
+
+    autoUpdater.on('update-available', info => {
+      sendStatusToWindow(
+        'update_available',
+        `Dostępna nowa wersja ${info.version} — pobieranie…`,
+        {version: info.version}
+      );
+    });
+
+    autoUpdater.on('update-not-available', () => {
+      log.info('Update not available.');
+    });
+
+    autoUpdater.on('download-progress', progressObj => {
+      sendStatusToWindow(
+        'update_progress',
+        `Pobieranie aktualizacji (${Math.round(progressObj.percent)}%)`,
+        {percent: Math.round(progressObj.percent)}
+      );
+    });
+
+    autoUpdater.on('update-downloaded', info => {
+      this.downloaded = true;
+      sendStatusToWindow(
+        'update_downloaded',
+        `Nowa wersja ${info.version} gotowa — FiveM zostanie zamknięty`,
+        {version: info.version}
+      );
+    });
+
+    autoUpdater.on('error', error => {
+      log.warn('Update error:', error);
+    });
+
+    this.check(true);
+    this.interval = setInterval(() => this.check(), UPDATE_CHECK_INTERVAL);
+  }
+
+  /**
+   * Sprawdza aktualizacje w tle. Dzięki temu nowa wersja pojawia się
+   * w uruchomionym launcherze, a nie dopiero po jego restarcie.
+   */
+  check(force = false) {
+    if (this.checking || this.downloaded) {
+      return;
+    }
+
+    if (!force && Date.now() - this.lastCheck < UPDATE_CHECK_COOLDOWN) {
+      return;
+    }
+
+    this.checking = true;
+    this.lastCheck = Date.now();
+
     autoUpdater
-      .checkForUpdatesAndNotify()
-      .catch(error => log.warn('Update check failed:', error));
+      .checkForUpdates()
+      .catch(error => log.warn('Update check failed:', error))
+      .then(() => {
+        this.checking = false;
+      });
+  }
+
+  isReady() {
+    return this.downloaded;
   }
 }
 
-let mainWindow = null;
+let updater = null;
+let updateInstallStarted = false;
+
+// Przed instalacją aktualizacji zamykamy FiveM, żeby gracz nie został
+// na serwerze ze starą wersją launchera.
+const installUpdate = async () => {
+  if (updateInstallStarted) {
+    return;
+  }
+
+  updateInstallStarted = true;
+  sendStatusToWindow('update_installing', 'Zamykanie FiveM i instalowanie aktualizacji…');
+
+  try {
+    await Promise.race([
+      closeFivem(),
+      new Promise(resolve => setTimeout(resolve, FIVEM_CLOSE_TIMEOUT))
+    ]);
+  } catch (error) {
+    log.warn('Could not close FiveM:', error);
+  }
+
+  autoUpdater.quitAndInstall(false, true);
+};
 
 if (process.env.NODE_ENV === 'production') {
   const sourceMapSupport = require('source-map-support');
@@ -122,13 +230,11 @@ app.on('ready', async () => {
   const menuBuilder = new MenuBuilder(mainWindow);
   menuBuilder.buildMenu();
 
-  // Remove this if your app does not use auto updates
-  // eslint-disable-next-line
-  new AppUpdater();
+  updater = new AppUpdater();
 
   ipcMain.on('mainprocess_action', (event, data) => {
     if (data.action === "app_restart") {
-      autoUpdater.quitAndInstall();
+      installUpdate();
     }
     if (data.action === "fivem_process") {
       if (/(FiveM.exe)$/.test(data.payload.command)) {
@@ -170,47 +276,27 @@ app.on('ready', async () => {
     }
   });
 
-  const sendStatusToWindow = (status, message) => {
-    if (mainWindow) {
-      mainWindow.webContents.send('status', {status, message});
-    }
-  };
-
   mainWindow.on('focus', () => {
     sendStatusToWindow('window_focus', "Window gained focus.");
+    // Powrót do launchera to dobry moment, żeby sprawdzić nową wersję.
+    if (updater) {
+      updater.check();
+    }
   });
 
   mainWindow.on('blur', () => {
     sendStatusToWindow('window_blur', "Window lost focus.");
   });
 
-  // autoUpdater.on('checking-for-update', () => {
-  //   sendStatusToWindow('update_checking', 'Checking for update...'); // @DEBUG
-  // });
-
-  // autoUpdater.on('update-available', info => {
-  //   sendStatusToWindow('update_available', 'Update available.'); // @DEBUG
-  // });
-
-  // autoUpdater.on('update-not-available', info => {
-  //   sendStatusToWindow('update_notAvailable', 'Update not available.'); // @DEBUG
-  // });
-
-  // autoUpdater.on('error', err => {
-  //   sendStatusToWindow('update_error', `Error in auto-updater: ${err.toString()}`); // @DEBUG
-  // });
-
-  // autoUpdater.on('download-progress', progressObj => {
-  //   sendStatusToWindow('update_progress', `Download speed: ${progressObj.bytesPerSecond} - Downloaded ${progressObj.percent}% (${progressObj.transferred}/${progressObj.total})`); // @DEBUG
-  // });
-
-  autoUpdater.on('download-progress', progressObj => {
-    sendStatusToWindow('update_progress', `Pobieranie aktualizacji (${Math.round(progressObj.percent)}%)`);
-  });
-
-  autoUpdater.on('update-downloaded', info => {
-    sendStatusToWindow('update_downloaded', 'Aktualizacja pobrana — zainstaluje się po restarcie.');
-  });
-
   // mainWindow.webContents.openDevTools(); // @DEBUG: Enables DevTools in production
+});
+
+// Zamknięcie launchera z pobraną aktualizacją też najpierw rozłącza FiveM.
+app.on('before-quit', event => {
+  if (!updater || !updater.isReady() || updateInstallStarted) {
+    return;
+  }
+
+  event.preventDefault();
+  installUpdate();
 });

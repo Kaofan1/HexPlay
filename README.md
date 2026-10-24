@@ -81,7 +81,11 @@ Przykład serwera:
 "publish": [{ "provider": "github", "owner": "Kaofan1", "repo": "HexPlay", "releaseType": "release" }]
 ```
 
-Przy pakowaniu electron-builder zapisuje `resources/app-update.yml` w aplikacji — to z niego klient wie, gdzie sprawdzać nową wersję. Aktualizacja pobiera się w tle i instaluje przy restarcie; użytkownik widzi pasek postępu w nagłówku.
+Przy pakowaniu electron-builder zapisuje `resources/app-update.yml` w aplikacji — to z niego klient wie, gdzie sprawdzać nową wersję.
+
+Launcher sprawdza aktualizacje przy starcie, co 10 minut oraz po powrocie okna na pierwszy plan, więc nowa wersja pojawia się w **uruchomionej** aplikacji, bez konieczności zamykania jej i otwierania ponownie. W nagłówku widać pasek postępu pobierania, a po pobraniu przycisk **Zainstaluj**.
+
+Przed instalacją launcher zamyka klienta FiveM (najpierw grzecznie, żeby gra zdążyła rozłączyć się z serwerem, a po chwili wymusza zamknięcie pozostałych procesów), instaluje aktualizację i uruchamia się ponownie. Dotyczy to zarówno przycisku w nagłówku, jak i zamknięcia launchera z pobraną aktualizacją.
 
 ### Wydanie nowej wersji — jedno polecenie
 

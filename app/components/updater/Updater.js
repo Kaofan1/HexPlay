@@ -1,43 +1,82 @@
-import React, {useState} from "react"
+import React, {useEffect, useState} from "react"
 import {ipcRenderer} from "electron"
 
 import updaterStyle from "./Updater.module.scss"
 
+const statusToState = (data) => {
+  if (data.status === "update_available") {
+    return {state: "downloading", message: data.message, percent: 0}
+  }
+
+  if (data.status === "update_progress") {
+    return {state: "downloading", message: data.message, percent: data.percent || 0}
+  }
+
+  if (data.status === "update_downloaded") {
+    return {state: "ready", message: data.message, percent: 100}
+  }
+
+  if (data.status === "update_installing") {
+    return {state: "installing", message: data.message, percent: 100}
+  }
+
+  return null
+}
+
 const Updater = () => {
-  const [notificationMessage, setNotificationMessage] = useState(null)
-  const [restartReady, setRestartReady] = useState(false)
+  const [update, setUpdate] = useState(null)
 
-  ipcRenderer.on('status', function (event, data) {
-    if (data.status === "update_progress") {
-      setNotificationMessage(data.message)
-    } else if (data.status === "update_downloaded") {
-      setNotificationMessage("Dostępna aktualizacja")
-      setRestartReady(true)
-    } else {
-      setNotificationMessage(null)
-      setRestartReady(false)
+  useEffect(() => {
+    const onStatus = (event, data) => {
+      if (!data || !data.status) {
+        return
+      }
+
+      const nextUpdate = statusToState(data)
+
+      if (nextUpdate) {
+        setUpdate(nextUpdate)
+      }
     }
-  })
 
-  const onRestart = () => {
-    ipcRenderer.send('mainprocess_action', {action: "app_restart"})
+    ipcRenderer.on("status", onStatus)
+
+    return () => ipcRenderer.removeListener("status", onStatus)
+  }, [])
+
+  const onInstall = () => {
+    ipcRenderer.send("mainprocess_action", {action: "app_restart"})
   }
 
-  const onDismiss = () => {
-    setNotificationActive(false)
+  if (!update) {
+    return null
   }
+
+  const canInstall = update.state === "ready"
 
   return (
-    <div className={`${updaterStyle.updater} ${notificationMessage && updaterStyle.active} ${restartReady && updaterStyle.restartable}`}>
+    <div
+      className={`${updaterStyle.updater} ${updaterStyle.active} ${canInstall && updaterStyle.restartable}`}
+    >
       <div className={updaterStyle.content}>
-        {notificationMessage}
+        <span className={updaterStyle.message}>{update.message}</span>
+        {update.state === "downloading" && (
+          <div className={updaterStyle.progress}>
+            <div
+              className={updaterStyle.progressBar}
+              style={{width: `${update.percent}%`}}
+            />
+          </div>
+        )}
       </div>
-      {restartReady && (
+      {canInstall && (
         <div
           className={updaterStyle.action}
-          onClick={() => onRestart()}
+          onClick={() => onInstall()}
+          title="Zainstaluj aktualizację i uruchom launcher ponownie"
         >
-          <i className="material-icon">refresh</i>
+          <i className="material-icon">system_update</i>
+          <span>Zainstaluj</span>
         </div>
       )}
     </div>
