@@ -75,7 +75,9 @@ const installUpdate = async () => {
       });
     });
 
-    app.quit();
+    // app.exit() kończy proces natychmiast. Dzięki temu instalator nie
+    // uruchomi nowej wersji obok wciąż zamykającego się starego okna.
+    app.exit(0);
   } catch (error) {
     log.warn('Could not run update installer:', error);
     updateInstallStarted = false;
@@ -113,7 +115,9 @@ const installExtensions = async () => {
  */
 const instanceLock = app.requestSingleInstanceLock();
 if (!instanceLock) {
-  app.quit()
+  // app.quit() przed gotowością nie zawsze zatrzymuje utworzenie okna,
+  // przez co powstawał drugi launcher obok uruchomionego.
+  app.exit(0)
 } else {
   app.on("second-instance", () => {
     if (mainWindow) {
@@ -134,6 +138,10 @@ app.on('window-all-closed', () => {
 });
 
 app.on('ready', async () => {
+  if (!instanceLock) {
+    return;
+  }
+
   if (
     process.env.NODE_ENV === 'development' ||
     process.env.DEBUG_PROD === 'true'
