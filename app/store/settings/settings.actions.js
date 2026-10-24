@@ -1,6 +1,7 @@
 export const SET_SETTINGS_ACTIVE = "SET_SETTINGS_ACTIVE"
 export const SET_FIVEM_LOCATION = "SET_FIVEM_LOCATION"
 export const SET_FIVEM_INVALID = "SET_FIVEM_INVALID"
+export const SET_ANIMATED_BACKGROUND = "SET_ANIMATED_BACKGROUND"
 
 export const setSettingsActive = (status) => {
   return {
@@ -22,5 +23,13 @@ export const setFivemInvalid = (status) => {
   return {
     type: SET_FIVEM_INVALID,
     payload: status
+  }
+}
+
+export const setAnimatedBackground = (enabled) => {
+  setSettingsConfig("animatedBackground", enabled)
+  return {
+    type: SET_ANIMATED_BACKGROUND,
+    payload: enabled
   }
 }

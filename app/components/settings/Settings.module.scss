@@ -59,6 +59,61 @@
     }
   }
 
+  .toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: $color-background-secondary;
+    padding: 1.5rem;
+    cursor: pointer;
+    @include transition(background);
+
+    .toggleLabel {
+      display: flex;
+      flex-direction: column;
+      padding-right: 1rem;
+
+      span {
+        color: $color-text-primary;
+      }
+
+      small {
+        margin-top: 0.3rem;
+        color: $color-text-secondary;
+        font-size: 1.2rem;
+      }
+    }
+
+    .switch {
+      position: relative;
+      flex: 0 0 auto;
+      width: 4rem;
+      height: 2.2rem;
+      border-radius: 1.1rem;
+      background: rgba($color-text-primary, 0.18);
+      @include transition(background);
+
+      .knob {
+        position: absolute;
+        top: 0.3rem;
+        left: 0.3rem;
+        width: 1.6rem;
+        height: 1.6rem;
+        border-radius: 50%;
+        background: $color-text-primary;
+        @include transition(transform);
+      }
+    }
+
+    .switchOn {
+      background: linear-gradient(135deg, $brand-accent, $brand-accent-2);
+
+      .knob {
+        transform: translateX(1.8rem);
+      }
+    }
+  }
+
   &[name="footnotes"] {
     display: flex;
     flex-direction: column;

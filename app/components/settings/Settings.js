@@ -3,7 +3,7 @@ import {remote} from "electron"
 import {connect} from "react-redux"
 import SVG from "react-inlinesvg"
 
-import {setSettingsActive, setFivemLocation} from "../../store/settings/settings.actions"
+import {setSettingsActive, setFivemLocation, setAnimatedBackground} from "../../store/settings/settings.actions"
 import settingsConfig from "../../configuration/settings.json"
 
 import externalLink from "../../utils/external-link/externalLink"
@@ -12,7 +12,14 @@ import Button from "../button/Button"
 
 import settingsStyle from "./Settings.module.scss"
 
-const Settings = ({fivemLocation, fivemInvalid, setFivemLocationAction, setSettingsActiveAction}) => {
+const Settings = ({
+  fivemLocation,
+  fivemInvalid,
+  animatedBackground,
+  setFivemLocationAction,
+  setAnimatedBackgroundAction,
+  setSettingsActiveAction
+}) => {
   const fivemField = useRef();
 
   const onFivemClick = () => {
@@ -63,6 +70,32 @@ const Settings = ({fivemLocation, fivemInvalid, setFivemLocationAction, setSetti
           </div>
         </div>
       </section>
+      <section name="background" className={settingsStyle.section}>
+        <div className={settingsStyle.title}>
+          <h2>Animowane tło</h2>
+        </div>
+        <div
+          className={settingsStyle.toggle}
+          role="switch"
+          aria-checked={animatedBackground}
+          tabIndex={0}
+          onClick={() => setAnimatedBackgroundAction(!animatedBackground)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault()
+              setAnimatedBackgroundAction(!animatedBackground)
+            }
+          }}
+        >
+          <div className={settingsStyle.toggleLabel}>
+            <span>{animatedBackground ? "Włączone" : "Wyłączone"}</span>
+            <small>Wyłącz, aby oszczędzać CPU i GPU na słabszych komputerach.</small>
+          </div>
+          <div className={`${settingsStyle.switch} ${animatedBackground && settingsStyle.switchOn}`}>
+            <div className={settingsStyle.knob} />
+          </div>
+        </div>
+      </section>
       <section name="exit" className={settingsStyle.section}>
         <Button
           to="/"
@@ -92,12 +125,14 @@ const Settings = ({fivemLocation, fivemInvalid, setFivemLocationAction, setSetti
 
 const mapStateToProps = (state) => ({
   fivemLocation: state.settings.fivemLocation,
-  fivemInvalid: state.settings.fivemInvalid
+  fivemInvalid: state.settings.fivemInvalid,
+  animatedBackground: state.settings.animatedBackground
 })
 
 const mapDispatchToProps = {
   setSettingsActiveAction: setSettingsActive,
-  setFivemLocationAction: setFivemLocation
+  setFivemLocationAction: setFivemLocation,
+  setAnimatedBackgroundAction: setAnimatedBackground
 }
 
 export default connect(mapStateToProps, mapDispatchToProps)(Settings)

@@ -1,7 +1,8 @@
 import {
   SET_SETTINGS_ACTIVE,
   SET_FIVEM_LOCATION,
-  SET_FIVEM_INVALID
+  SET_FIVEM_INVALID,
+  SET_ANIMATED_BACKGROUND
 } from "./settings.actions"
 
 import {getSettingsConfig} from "../../utils/settings-storage/settingsStorage"
@@ -10,7 +11,8 @@ import settings from "../../configuration/settings.json"
 const initialState = {
   active: false,
   fivemLocation: getSettingsConfig("fivemLocation") || settings.defaultFivemLocation,
-  fivemInvalid: false
+  fivemInvalid: false,
+  animatedBackground: getSettingsConfig("animatedBackground") !== false
 }
 
 export default function (state = initialState, action) {
@@ -25,6 +27,11 @@ export default function (state = initialState, action) {
         ...state,
         fivemLocation: action.payload,
         fivemInvalid: false
+      }
+    case SET_ANIMATED_BACKGROUND:
+      return {
+        ...state,
+        animatedBackground: action.payload
       }
     case SET_FIVEM_INVALID:
       if (action.payload) {

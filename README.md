@@ -73,6 +73,10 @@ Przykład serwera:
 - **Nazwa aplikacji / instalatora**: `productName` i `build.appId` w `package.json` oraz `app/package.json`.
 - **Tła**: lista w `app/components/background/Background.js`, pliki z `app/assets/images/background/` i `app/assets/videos/background/`.
 
+## Ustawienia launchera
+
+W panelu ustawień (ikona koła zębatego) można zmienić lokalizację `FiveM.exe` oraz wyłączyć **animowane tło**. Po wyłączeniu launcher nie odtwarza wideo ani nie uruchamia animacji CSS, tylko pokazuje jedno statyczne zdjęcie, co zmniejsza obciążenie CPU i GPU na słabszych komputerach. Wybór jest zapisywany w konfiguracji użytkownika i obowiązuje po restarcie aplikacji.
+
 ## Aktualizacje
 
 Launcher sprawdza najnowsze wydanie przez GitHub API (`/repos/Kaofan1/HexPlay/releases/latest`), porównuje tag z własną wersją i pobiera instalator bezpośrednio z release'u. Release zawiera **wyłącznie** `HexPlay-Launcher-Setup.exe`, bez `latest.yml` i bez plików `.blockmap`.

@@ -1,5 +1,6 @@
 import React, {useState, useEffect} from "react"
 import {ipcRenderer} from "electron"
+import {connect} from "react-redux"
 import Video from 'react-video-renderer'
 
 import Image2 from "../../assets/images/background/image2.jpg"
@@ -12,16 +13,16 @@ import Video3 from "../../assets/videos/background/video6.webm"
 
 import style from "./Background.module.scss"
 
-const Background = () => {
-  const [animationActive, setAnimationActive] = useState(true)
+const Background = ({animated}) => {
+  const [windowFocused, setWindowFocused] = useState(true)
 
   useEffect(() => {
     const onStatus = (event, data) => {
       if (data.status === "window_focus") {
-        setAnimationActive(true)
+        setWindowFocused(true)
       }
       if (data.status === "window_blur") {
-        setAnimationActive(false)
+        setWindowFocused(false)
       }
     }
 
@@ -65,6 +66,18 @@ const Background = () => {
     },
   ]
 
+  // Statyczne tło dla słabszych komputerów: jedno zdjęcie, bez wideo
+  // i bez animacji CSS.
+  if (!animated) {
+    return (
+      <ul className={style.background}>
+        <li className={`${style.image} ${style.static}`}>
+          <img src={Image2} alt="" />
+        </li>
+      </ul>
+    )
+  }
+
   const imageAnimation = "imageAnimation"
   const imageAnimatonKeyframes = `
     @keyframes ${imageAnimation} {
@@ -105,7 +118,7 @@ const Background = () => {
   `
 
   return (
-    <ul className={`${style.background} ${!animationActive && style.paused }`}>
+    <ul className={`${style.background} ${!windowFocused && style.paused }`}>
       <style>{imageAnimatonKeyframes}</style>
       <style>{videoAnimatonKeyframes}</style>
       {backgroundsList && backgroundsList.length && backgroundsList.map((item, i) => (
@@ -126,7 +139,7 @@ const Background = () => {
           {item.type === TYPE_VIDEO && (
             <Video src={item.file}>
               {(video, state, actions) => {
-                animationActive ? actions.play() : actions.pause()
+                windowFocused ? actions.play() : actions.pause()
                 return (video)
               }}
             </Video>
@@ -137,4 +150,8 @@ const Background = () => {
   )
 }
 
-export default Background
+const mapStateToProps = (state) => ({
+  animated: state.settings.animatedBackground
+})
+
+export default connect(mapStateToProps)(Background)
