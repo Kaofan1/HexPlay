@@ -16,6 +16,7 @@
  */
 const { execSync } = require('child_process');
 const fs = require('fs');
+const https = require('https');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..', '..');
@@ -152,6 +153,50 @@ async function assertTokenCanPublish(owner, repo) {
   }
 }
 
+function uploadAsset(owner, repo, releaseId, filePath, name) {
+  return new Promise((resolve, reject) => {
+    const stat = fs.statSync(filePath);
+    const request = https.request(
+      {
+        method: 'POST',
+        hostname: 'uploads.github.com',
+        path: `/repos/${owner}/${repo}/releases/${releaseId}/assets?name=${encodeURIComponent(
+          name
+        )}`,
+        headers: {
+          Authorization: `Bearer ${process.env.GH_TOKEN}`,
+          Accept: 'application/vnd.github+json',
+          'User-Agent': 'hexplay-launcher-release',
+          'Content-Type': 'application/octet-stream',
+          'Content-Length': stat.size
+        }
+      },
+      response => {
+        let text = '';
+        response.on('data', chunk => {
+          text += chunk;
+        });
+        response.on('end', () => {
+          let data = {};
+          try {
+            data = text ? JSON.parse(text) : {};
+          } catch (error) {
+            data = { message: text };
+          }
+          resolve({
+            ok: response.statusCode >= 200 && response.statusCode < 300,
+            status: response.statusCode,
+            data
+          });
+        });
+      }
+    );
+
+    request.on('error', reject);
+    fs.createReadStream(filePath).pipe(request);
+  });
+}
+
 async function findRelease(owner, repo, tag) {
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const { ok, status, data } = await githubRequest(
@@ -222,7 +267,7 @@ async function main() {
     sh(`git rev-parse -q --verify refs/tags/${tag}`);
     fail(`Tag ${tag} już istnieje.`);
   } catch (error) {
-    // Brak tagu — oczekiwane.
+    // Brak tagu, oczekiwane.
   }
 
   const publish = (pkg.build && pkg.build.publish && pkg.build.publish[0]) || {};
@@ -238,8 +283,9 @@ async function main() {
     console.log(`  - git commit "Release ${tag}" + git push origin ${BRANCH}`);
     console.log(`  - git tag ${tag} + git push origin ${tag}`);
     console.log('  - yarn build');
-    console.log('  - electron-builder --win nsis --x64 --publish always');
-    console.log(`  - weryfikacja release'u ${owner}/${repo} ${tag}`);
+    console.log('  - electron-builder --win nsis --x64 --publish never');
+    console.log(`  - utworzenie release'u ${owner}/${repo} ${tag} i upload instalatora`);
+    console.log('  - weryfikacja, że release nie zawiera latest.yml ani .blockmap');
     return;
   }
 
@@ -264,60 +310,96 @@ async function main() {
     sh(`git push origin ${tag}`);
   } catch (error) {
     fail(
-      'Nie udało się wypchnąć commita/taga. Wersja jest podbita lokalnie — ' +
+      'Nie udało się wypchnąć commita/taga. Wersja jest podbita lokalnie. ' +
         'napraw dostęp do remote i wypchnij ręcznie, potem uruchom build.'
     );
   }
 
-  log('5/6', 'Buduję i publikuję instalator');
+  log('5/6', 'Buduję instalator');
   const yarn = resolveYarn();
   sh(`${yarn} build`, { inherit: true });
-  sh(`${yarn} electron-builder build --win nsis --x64 --publish always`, {
+  sh(`${yarn} electron-builder build --win nsis --x64 --publish never`, {
     inherit: true
   });
 
-  log('6/6', 'Weryfikuję release');
-  const release = await findRelease(owner, repo, tag);
-  if (!release) fail(`Nie znalazłem release'u ${tag} po publikacji.`);
-
-  if (release.draft) {
-    const published = await githubRequest(
-      `/repos/${owner}/${repo}/releases/${release.id}`,
-      { method: 'PATCH', body: JSON.stringify({ draft: false }) }
-    );
-    if (!published.ok) {
-      fail(`Release ${tag} został utworzony, ale nie udało się go opublikować.`);
-    }
+  const installerPath = path.join(ROOT, 'release', 'HexPlay Launcher Setup.exe');
+  if (!fs.existsSync(installerPath)) {
+    fail(`Nie znalazłem instalatora: ${installerPath}`);
   }
 
-  const assets = release.assets || [];
-  const hasUpdaterFile = assets.some(asset => asset.name === 'latest.yml');
-  const installer = assets.find(asset => /Setup.*\.exe$/i.test(asset.name));
-  if (!hasUpdaterFile || !installer) {
-    fail(
-      `Release ${tag} nie ma wymaganych plików dla auto-update ` +
-        '(latest.yml + instalator .exe).'
-    );
-  }
-
+  log('6/6', 'Tworzę release i wysyłam instalator');
   const notes = [
     `Wydanie ${version} HexPlay Launcher.`,
     '',
-    `Instalator: \`${installer.name}\``,
+    'Auto-aktualizacja pobiera wyłącznie instalator z tego release\'u.',
     '',
-    'Instalator jest niepodpisany — SmartScreen może pokazać ostrzeżenie ' +
+    'Instalator jest niepodpisany. SmartScreen może pokazać ostrzeżenie ' +
       '(„Więcej informacji” → „Uruchom mimo to”).'
   ].join('\n');
 
-  await githubRequest(`/repos/${owner}/${repo}/releases/${release.id}`, {
-    method: 'PATCH',
-    body: JSON.stringify({ name: `HexPlay Launcher ${version}`, body: notes })
+  const created = await githubRequest(`/repos/${owner}/${repo}/releases`, {
+    method: 'POST',
+    body: JSON.stringify({
+      tag_name: tag,
+      name: `HexPlay Launcher ${version}`,
+      draft: true,
+      body: notes
+    })
   });
+
+  if (!created.ok) {
+    fail(
+      `Nie mogę utworzyć release'u ${tag} (HTTP ${created.status}): ${
+        created.data.message || 'brak szczegółów'
+      }`
+    );
+  }
+
+  const uploaded = await uploadAsset(
+    owner,
+    repo,
+    created.data.id,
+    installerPath,
+    'HexPlay-Launcher-Setup.exe'
+  );
+
+  if (!uploaded.ok) {
+    fail(
+      `Nie mogę wysłać instalatora (HTTP ${uploaded.status}): ${
+        uploaded.data.message || 'brak szczegółów'
+      }`
+    );
+  }
+
+  const published = await githubRequest(
+    `/repos/${owner}/${repo}/releases/${created.data.id}`,
+    { method: 'PATCH', body: JSON.stringify({ draft: false }) }
+  );
+
+  if (!published.ok) {
+    fail(`Release ${tag} został utworzony, ale nie udało się go opublikować.`);
+  }
+
+  const release = await findRelease(owner, repo, tag);
+  if (!release) fail(`Nie znalazłem release'u ${tag} po publikacji.`);
+
+  const assets = release.assets || [];
+  const installer = assets.find(asset => asset.name === 'HexPlay-Launcher-Setup.exe');
+  const forbidden = assets.filter(
+    asset => asset.name === 'latest.yml' || /\.blockmap$/i.test(asset.name)
+  );
+
+  if (!installer || forbidden.length > 0) {
+    fail(
+      `Release ${tag} ma nieprawidłowe assety. Oczekiwany jest tylko instalator, ` +
+        `a znaleziono: ${assets.map(asset => asset.name).join(', ')}`
+    );
+  }
 
   console.log(
     `\n\u001b[32mGotowe:\u001b[0m https://github.com/${owner}/${repo}/releases/tag/${tag}`
   );
-  console.log(`Klienci na starszej wersji pobiorą aktualizację przy następnym starcie.`);
+  console.log('Launcherzy na wersji 1.0.5 i nowszych pobiorą aktualizację automatycznie.');
 }
 
 if (require.main === module) {

@@ -9,7 +9,6 @@
  * `./app/main.prod.js` using webpack. This gives us some performance wins.
  */
 import { app, BrowserWindow, ipcMain, shell } from 'electron';
-import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import MenuBuilder from './menu';
 
@@ -18,9 +17,9 @@ import fs from "fs";
 
 import fivemLocationParser from "./utils/parsers/fivemLocationParser";
 import closeFivem from "./utils/fivem-process/closeFivem";
+import GithubUpdater from "./utils/updater/githubUpdater";
 
 const UPDATE_CHECK_INTERVAL = 10 * 60 * 1000;
-const UPDATE_CHECK_COOLDOWN = 2 * 60 * 1000;
 const FIVEM_CLOSE_TIMEOUT = 15000;
 
 let mainWindow = null;
@@ -31,95 +30,20 @@ const sendStatusToWindow = (status, message, extra = {}) => {
   }
 };
 
-export default class AppUpdater {
-  constructor() {
-    log.transports.file.level = 'info';
-    autoUpdater.logger = log;
-    autoUpdater.autoDownload = true;
-    // Instalacją sterujemy sami, żeby przed nią zdążyć zamknąć FiveM.
-    autoUpdater.autoInstallOnAppQuit = false;
-
-    this.checking = false;
-    this.downloaded = false;
-    this.lastCheck = 0;
-
-    autoUpdater.on('checking-for-update', () => {
-      log.info('Checking for update...');
-    });
-
-    autoUpdater.on('update-available', info => {
-      sendStatusToWindow(
-        'update_available',
-        `Dostępna nowa wersja ${info.version} — pobieranie…`,
-        {version: info.version}
-      );
-    });
-
-    autoUpdater.on('update-not-available', () => {
-      log.info('Update not available.');
-    });
-
-    autoUpdater.on('download-progress', progressObj => {
-      sendStatusToWindow(
-        'update_progress',
-        `Pobieranie aktualizacji (${Math.round(progressObj.percent)}%)`,
-        {percent: Math.round(progressObj.percent)}
-      );
-    });
-
-    autoUpdater.on('update-downloaded', info => {
-      this.downloaded = true;
-      sendStatusToWindow(
-        'update_downloaded',
-        `Nowa wersja ${info.version} gotowa — FiveM zostanie zamknięty`,
-        {version: info.version}
-      );
-    });
-
-    autoUpdater.on('error', error => {
-      log.warn('Update error:', error);
-    });
-
-    this.check(true);
-    this.interval = setInterval(() => this.check(), UPDATE_CHECK_INTERVAL);
-  }
-
-  /**
-   * Sprawdza aktualizacje w tle. Dzięki temu nowa wersja pojawia się
-   * w uruchomionym launcherze, a nie dopiero po jego restarcie.
-   */
-  check(force = false) {
-    if (this.checking || this.downloaded) {
-      return;
-    }
-
-    if (!force && Date.now() - this.lastCheck < UPDATE_CHECK_COOLDOWN) {
-      return;
-    }
-
-    this.checking = true;
-    this.lastCheck = Date.now();
-
-    autoUpdater
-      .checkForUpdates()
-      .catch(error => log.warn('Update check failed:', error))
-      .then(() => {
-        this.checking = false;
-      });
-  }
-
-  isReady() {
-    return this.downloaded;
-  }
-}
-
 let updater = null;
 let updateInstallStarted = false;
 
 // Przed instalacją aktualizacji zamykamy FiveM, żeby gracz nie został
 // na serwerze ze starą wersją launchera.
 const installUpdate = async () => {
-  if (updateInstallStarted) {
+  if (updateInstallStarted || !updater || !updater.isReady()) {
+    return;
+  }
+
+  const installerPath = updater.installerPath();
+
+  if (!installerPath || !fs.existsSync(installerPath)) {
+    log.warn('Update installer is missing:', installerPath);
     return;
   }
 
@@ -135,7 +59,31 @@ const installUpdate = async () => {
     log.warn('Could not close FiveM:', error);
   }
 
-  autoUpdater.quitAndInstall(false, true);
+  try {
+    await new Promise((resolve, reject) => {
+      // Te same argumenty, których używa electron-updater: cichy montaż
+      // i ponowne uruchomienie launchera po instalacji.
+      const installer = spawn(installerPath, ['--updated', '/S', '--force-run'], {
+        detached: true,
+        stdio: 'ignore'
+      });
+
+      installer.once('error', reject);
+      installer.once('spawn', () => {
+        installer.unref();
+        resolve();
+      });
+    });
+
+    app.quit();
+  } catch (error) {
+    log.warn('Could not run update installer:', error);
+    updateInstallStarted = false;
+    sendStatusToWindow(
+      'update_downloaded',
+      'Nie udało się uruchomić instalatora. Spróbuj ponownie.'
+    );
+  }
 };
 
 if (process.env.NODE_ENV === 'production') {
@@ -233,7 +181,10 @@ app.on('ready', async () => {
   const menuBuilder = new MenuBuilder(mainWindow);
   menuBuilder.buildMenu();
 
-  updater = new AppUpdater();
+  log.transports.file.level = 'info';
+  updater = new GithubUpdater({onStatus: sendStatusToWindow});
+  updater.check(true);
+  setInterval(() => updater.check(), UPDATE_CHECK_INTERVAL);
 
   ipcMain.on('mainprocess_action', (event, data) => {
     if (data.action === "app_restart") {

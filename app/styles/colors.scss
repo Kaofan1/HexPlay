@@ -1,4 +1,4 @@
-/* Paleta marki — źródło: panel-theme.css (HexPlay) */
+/* Paleta marki (źródło: panel-theme.css, HexPlay) */
 
 $brand-accent: #7c5cff; // główny akcent
 $brand-accent-2: #00c2ff; // drugi kolor gradientu akcentu
@@ -8,7 +8,7 @@ $brand-text: #e9edf6; // tekst główny
 $brand-muted: #97a1b6; // tekst drugorzędny
 $brand-line: rgba(148, 163, 184, 0.13); // ramki
 
-/* Pochodne — nie wymagają zmian */
+/* Pochodne, nie wymagają zmian */
 $color-text-primary: $brand-text;
 $color-text-primary-hover: $brand-text;
 $color-text-secondary: $brand-muted;

@@ -8,7 +8,7 @@
   width: 100%;
   height: 100%;
   overflow: hidden;
-  // Własny kontekst układania — tło nie miesza się z gradientem strony
+  // Własny kontekst układania: tło nie miesza się z gradientem strony
   // i nie zostawia nieprzezroczystych warstw po Alt+Tab.
   z-index: 0;
   isolation: isolate;
