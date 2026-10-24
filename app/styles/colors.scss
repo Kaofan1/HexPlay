@@ -1,0 +1,23 @@
+/* Paleta marki — źródło: panel-theme.css (HexPlay) */
+
+$brand-accent: #7c5cff; // główny akcent
+$brand-accent-2: #00c2ff; // drugi kolor gradientu akcentu
+$brand-surface: #070b14; // tło aplikacji
+$brand-elevated: #0b1220; // karty, przyciski, pola
+$brand-text: #e9edf6; // tekst główny
+$brand-muted: #97a1b6; // tekst drugorzędny
+$brand-line: rgba(148, 163, 184, 0.13); // ramki
+
+/* Pochodne — nie wymagają zmian */
+$color-text-primary: $brand-text;
+$color-text-primary-hover: $brand-text;
+$color-text-secondary: $brand-muted;
+$color-text-tertiary: rgba($brand-text, 0.8);
+
+$color-background-primary: $brand-surface;
+$color-background-primary-hover: lighten($brand-elevated, 8%);
+$color-background-secondary: $brand-elevated;
+
+$color-background-highlight: $brand-accent;
+$color-border: $brand-line;
+$color-danger: #fb7185;

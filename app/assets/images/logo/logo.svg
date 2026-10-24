@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" role="img" aria-label="HexPlay">
+  <defs>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7c5cff" />
+      <stop offset="1" stop-color="#00c2ff" />
+    </linearGradient>
+  </defs>
+  <path d="M60 6 107 33v54L60 114 13 87V33z" fill="none" stroke="url(#accent)" stroke-width="6" stroke-linejoin="round" />
+  <text x="60" y="80" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="56" font-weight="700" fill="#e9edf6">H</text>
+</svg>

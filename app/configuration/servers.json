@@ -1,0 +1,14 @@
+{
+  "main": {
+    "label": "HexPlay",
+    "priority": 1,
+    "address": "twoj-serwer.pl:30120",
+    "enabled": true
+  },
+  "test": {
+    "label": "Serwer testowy",
+    "priority": 2,
+    "address": "twoj-serwer.pl:30121",
+    "enabled": false
+  }
+}
