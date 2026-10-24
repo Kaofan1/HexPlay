@@ -102,6 +102,8 @@ Skrypt `internals/scripts/Release.js`:
 
 Wymagania: gałąź `main`, czyste drzewo robocze, Windows oraz `GH_TOKEN` z **Contents: Read and write**. Push commita i taga korzysta z Twojego skonfigurowanego dostępu do gita (GCM/SSH). `GH_TOKEN` służy do publikacji release'u. Podgląd planu bez zmian: `yarn release patch --dry-run`.
 
+Jeśli publikacja przerwie się po utworzeniu commita i taga (np. brak uprawnień tokenu albo błąd sieci), nie podbijaj wersji ponownie. Uruchom `yarn release --publish-only`, żeby przebudować instalator i opublikować release dla już istniejącego taga.
+
 Publikowany jest sam instalator NSIS (to jego dotyczy auto-update). MSI zbudujesz ręcznie przez `yarn package-win`.
 
 Ręcznie (bez skryptu) wystarczy jedno asset: `HexPlay-Launcher-Setup.exe`. Launcher nie potrzebuje plików metadanych w release, bo wersję i adres instalatora odczytuje z GitHub API.
