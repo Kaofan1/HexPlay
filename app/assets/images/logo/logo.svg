@@ -5,6 +5,6 @@
       <stop offset="1" stop-color="#00c2ff" />
     </linearGradient>
   </defs>
-  <path d="M60 6 107 33v54L60 114 13 87V33z" fill="none" stroke="url(#accent)" stroke-width="6" stroke-linejoin="round" />
-  <text x="60" y="80" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="56" font-weight="700" fill="#e9edf6">H</text>
+  <path d="M60 6 107 33v54L60 114 13 87V33z" fill="url(#accent)" />
+  <text x="60" y="80" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="56" font-weight="700" fill="#070b14">H</text>
 </svg>

@@ -87,6 +87,7 @@
       "output": "release"
     },
     "win": {
+      "icon": "resources/icon.png",
       "target": [
         "nsis",
         "msi"
@@ -95,8 +96,8 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "twoj-github",
-        "repo": "hexplay-launcher"
+        "owner": "Kaofan1",
+        "repo": "HexPlay"
       }
     ]
   },

@@ -75,17 +75,21 @@ Przykład serwera:
 
 ## Aktualizacje
 
-`electron-updater` pobiera wydania z GitHuba wskazanego w `package.json` → `build.publish`:
+`electron-updater` pobiera wydania z GitHuba wskazanego w `package.json` → `build.publish` (skonfigurowane na [`Kaofan1/HexPlay`](https://github.com/Kaofan1/HexPlay)):
 
 ```json
-"publish": [{ "provider": "github", "owner": "twoj-github", "repo": "hexplay-launcher" }]
+"publish": [{ "provider": "github", "owner": "Kaofan1", "repo": "HexPlay" }]
 ```
+
+Przy pakowaniu electron-builder zapisuje `resources/app-update.yml` w aplikacji — to z niego klient wie, gdzie sprawdzać nową wersję. Aktualizacja pobiera się w tle i instaluje przy restarcie; użytkownik widzi pasek postępu w nagłówku.
 
 Wydanie nowej wersji:
 
 1. Podbij `version` w `package.json` **i** `app/package.json`.
 2. Ustaw `GH_TOKEN` (token z zakresem `repo`).
-3. `yarn package-win` i wrzuć artefakty z `release/` jako GitHub Release.
+3. `yarn package-win` i wrzuć artefakty z `release/` jako GitHub Release — **wymagane**: `HexPlay Launcher Setup <wersja>.exe`, `latest.yml` i `.blockmap` (bez `latest.yml` klient nie wykryje aktualizacji).
+
+Instalator NSIS (`release/HexPlay Launcher Setup 1.0.0.exe`) jest niepodpisany, więc Windows SmartScreen pokaże ostrzeżenie — podpisanie wymaga certyfikatu code signing.
 
 ## Struktura
 
