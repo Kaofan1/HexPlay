@@ -1,7 +1,7 @@
-import React, {Fragment} from "react"
+import React, {Fragment, useEffect} from "react"
 import {connect} from "react-redux"
 
-import {setNewsActive} from "../../store/news/news.actions"
+import {setNewsActive, markNewsSeen} from "../../store/news/news.actions"
 import changelog from "../../configuration/changelog.json"
 
 import Button from "../button/Button"
@@ -25,7 +25,17 @@ const formatDate = (value) => {
   return `${day}.${month}.${year}`
 }
 
-const News = ({setNewsActiveAction}) => {
+const News = ({seenVersion, setNewsActiveAction, markNewsSeenAction}) => {
+  const latestVersion = changelog.length > 0 ? changelog[0].version : null
+
+  // Otwarcie panelu oznacza najnowsze wpisy jako przeczytane. Zapisujemy
+  // wersję tylko wtedy, gdy naprawdę się zmieniła.
+  useEffect(() => {
+    if (latestVersion && seenVersion !== latestVersion) {
+      markNewsSeenAction(latestVersion)
+    }
+  }, [latestVersion, seenVersion, markNewsSeenAction])
+
   const onClose = (e) => {
     e.preventDefault()
     setNewsActiveAction(false)
@@ -75,8 +85,13 @@ const News = ({setNewsActiveAction}) => {
   )
 }
 
+const mapStateToProps = (state) => ({
+  seenVersion: state.news.seenVersion
+})
+
 const mapDispatchToProps = {
-  setNewsActiveAction: setNewsActive
+  setNewsActiveAction: setNewsActive,
+  markNewsSeenAction: markNewsSeen
 }
 
-export default connect(null, mapDispatchToProps)(News)
+export default connect(mapStateToProps, mapDispatchToProps)(News)

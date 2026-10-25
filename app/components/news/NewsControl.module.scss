@@ -2,6 +2,7 @@
 
 /* News Control */
 .action {
+  position: relative;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -20,6 +21,21 @@
     &:hover {
       background: rgba(255, 255, 255, 0.1);
     }
+  }
+
+  .dot {
+    position: absolute;
+    top: 0.6rem;
+    right: 1rem;
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 50%;
+    background: linear-gradient(135deg, $brand-accent, $brand-accent-2);
+    box-shadow: 0 0 0 2px $color-background-primary;
+  }
+
+  &.active .dot {
+    box-shadow: 0 0 0 2px $color-background-secondary;
   }
 
   svg {

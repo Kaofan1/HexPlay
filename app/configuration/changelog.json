@@ -1,5 +1,17 @@
 [
   {
+    "version": "1.0.20",
+    "date": "2026-10-25",
+    "added": [
+      "Kropka przy ikonie Aktualności, która znika po przeczytaniu nowych wpisów."
+    ],
+    "changed": [
+      "Przeczytana wersja jest zapamiętywana, więc kropka nie wraca po restarcie launchera."
+    ],
+    "fixed": [],
+    "removed": []
+  },
+  {
     "version": "1.0.19",
     "date": "2026-10-25",
     "added": [
