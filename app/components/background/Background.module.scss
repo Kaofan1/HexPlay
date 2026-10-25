@@ -26,8 +26,8 @@
     z-index: -80;
     background: linear-gradient(
       180deg,
-      rgba($brand-surface, 0.55),
-      rgba($brand-surface, 0.85)
+      rgba($brand-surface, 0.35),
+      rgba($brand-surface, 0.7)
     );
     pointer-events: none;
   }
@@ -45,15 +45,14 @@
     background-repeat: no-repeat;
     z-index: -90;
     opacity: 0;
-    // Bez mix-blend-mode: blendowanie animowanych zdjęć i wideo potrafi
+    // Bez mix-blend-mode: blendowanie animowanych zdjęć potrafi
     // zostawić czarne lub nieprzezroczyste prostokąty po przełączeniu okna.
     filter: grayscale(100%) contrast(1.05);
 
-    // Media wypełniają dokładnie swój kontener. Bez powiększania warstwy
+    // Zdjęcia wypełniają dokładnie swój kontener. Bez powiększania warstwy
     // i przesuwania jej w animacji obraz nie jest ciągle przeskalowywany,
     // więc pozostaje ostry.
-    img,
-    video {
+    img {
       display: block;
       width: 100%;
       height: 100%;
@@ -63,21 +62,8 @@
 
     // Statyczne tło przy wyłączonych animacjach
     &.static {
-      opacity: 0.25;
+      opacity: 0.6;
       animation: none;
-    }
-
-    // Asset specific:
-    &.filter_video1 {
-      filter: brightness(0.9) grayscale(100%) contrast(1.05);
-    }
-
-    &.filter_video2 {
-      filter: brightness(1.05) grayscale(100%) contrast(1.1);
-    }
-
-    &.filter_video3 {
-      filter: brightness(0.75) grayscale(100%) contrast(1.2);
     }
   }
 

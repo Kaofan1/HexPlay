@@ -13,7 +13,7 @@ FiveM w swoim regulaminie ogranicza zewnętrzne launchery i sposoby łączenia s
 - **Wybór wielu serwerów**: lista z `servers.json`, przycisk „Join server” dla każdego z nich.
 - **Status i gracze online**: odświeżanie co 20 s na podstawie `/info.json` i `/players.json` serwera.
 - **Linki społeczności**: dowolna liczba przycisków (Discord, forum, Teamspeak itd.).
-- **Tła multimedialne**: zdjęcia i filmy `.webm` z pokazem slajdów; pauza, gdy okno traci focus.
+- **Tła**: pokaz slajdów ze zdjęć w wysokiej rozdzielczości; pauza, gdy okno traci focus.
 - **Automatyczne aktualizacje**: GitHub API + instalator NSIS.
 - **Ustawienia**: wskazanie własnej ścieżki do `FiveM.exe`, sprawdzanie instalacji i czyszczenie cache FiveM.
 
@@ -71,7 +71,7 @@ Przykład serwera:
 - **Fonty**: launcher używa lokalnego Work Sans (offline). Panel używa Inter/Sora; jeśli chcesz je podmienić, dodaj pliki do `app/assets/fonts/` i zaktualizuj `app/styles/fonts.scss`.
 - **Tytuł okna**: `app/app.html` (`<title>`).
 - **Nazwa aplikacji / instalatora**: `productName` i `build.appId` w `package.json` oraz `app/package.json`.
-- **Tła**: lista w `app/components/background/Background.js`, pliki z `app/assets/images/background/` i `app/assets/videos/background/`.
+- **Tła**: lista zdjęć w `app/components/background/Background.js`, pliki z `app/assets/images/background/`. Klipy `.webm` z `app/assets/videos/background/` nie są już używane, bo dekoder VP9 w Electronie 8 wyświetlał je z podziałem na pół i blokami.
 
 ## Ustawienia launchera
 

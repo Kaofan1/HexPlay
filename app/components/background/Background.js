@@ -1,17 +1,16 @@
 import React, {useState, useEffect} from "react"
 import {ipcRenderer} from "electron"
 import {connect} from "react-redux"
-import Video from 'react-video-renderer'
 
+import Image1 from "../../assets/images/background/image1.jpg"
 import Image2 from "../../assets/images/background/image2.jpg"
+import Image3 from "../../assets/images/background/image3.jpg"
 import Image4 from "../../assets/images/background/image4.jpg"
 import Image5 from "../../assets/images/background/image5.jpg"
 
-import Video1 from "../../assets/videos/background/video4.webm"
-import Video2 from "../../assets/videos/background/video5.webm"
-import Video3 from "../../assets/videos/background/video6.webm"
-
 import style from "./Background.module.scss"
+
+const SLIDE_DURATION = 10
 
 const Background = ({animated}) => {
   const [windowFocused, setWindowFocused] = useState(true)
@@ -31,43 +30,12 @@ const Background = ({animated}) => {
     return () => ipcRenderer.removeListener('status', onStatus)
   }, [])
 
-  const TYPE_IMAGE = "image"
-  const TYPE_VIDEO = "video"
+  // Klipy .webm w tle były zakodowane w VP9, którego dekoder w Electronie 8
+  // nie obsługuje poprawnie: obraz dzielił się na pół i miał bloki.
+  // Zamiast nich używamy ostrych zdjęć w wysokiej rozdzielczości.
+  const backgroundsList = [Image1, Image2, Image3, Image4, Image5]
 
-  const backgroundsList = [
-    {
-      file: Video1,
-      type: TYPE_VIDEO,
-      filterClassName: style.filter_video1
-    },
-    {
-      file: Image5,
-      type: TYPE_IMAGE,
-      filterClassName: style.filter_image5
-    },
-    {
-      file: Video2,
-      type: TYPE_VIDEO,
-      filterClassName: style.filter_video2
-    },
-    {
-      file: Image2,
-      type: TYPE_IMAGE,
-    },
-    {
-      file: Video3,
-      type: TYPE_VIDEO,
-      filterClassName: style.filter_video3
-    },
-    {
-      file: Image4,
-      type: TYPE_IMAGE,
-      filterClassName: style.filter_image4
-    },
-  ]
-
-  // Statyczne tło dla słabszych komputerów: jedno zdjęcie, bez wideo
-  // i bez animacji CSS.
+  // Statyczne tło dla słabszych komputerów: jedno zdjęcie, bez animacji.
   if (!animated) {
     return (
       <ul className={style.background}>
@@ -79,41 +47,27 @@ const Background = ({animated}) => {
   }
 
   const imageAnimation = "imageAnimation"
-  // Animujemy tylko przezroczystość. Przesuwanie powiększonej warstwy
-  // zmuszało Chromium do ciągłego przeskalowywania obrazu i wideo, przez
-  // co tło wyglądało na rozmazane.
+
+  // Każde zdjęcie ma własne okno 10 s: szybkie pojawienie się, pauzę
+  // i zniknięcie przed startem następnego. Dwa kadry nigdy nie nachodzą
+  // na siebie, więc tło nie robi się mętne.
+  const slot = 100 / backgroundsList.length
+  const fadeInEnd = 2
+  const holdEnd = slot - 3
+  const fadeOutEnd = slot - 0.3
+
   const imageAnimatonKeyframes = `
     @keyframes ${imageAnimation} {
       0% {
         opacity: 0;
       }
-      ${5 * 4 / backgroundsList.length}% {
-        opacity: 0.25;
+      ${fadeInEnd}% {
+        opacity: 0.6;
       }
-      ${25 * 4 / backgroundsList.length}% {
-        opacity: 0.25;
+      ${holdEnd}% {
+        opacity: 0.6;
       }
-      ${30 * 4 / backgroundsList.length}% {
-        opacity: 0;
-      }
-      100% {
-        opacity: 0;
-      }
-    }
-  `
-  const videoAnimation = "videoAnimation"
-  const videoAnimatonKeyframes = `
-    @keyframes ${videoAnimation} {
-      0% {
-        opacity: 0;
-      }
-      ${5 * 4 / backgroundsList.length}% {
-        opacity: 0.35;
-      }
-      ${25 * 4 / backgroundsList.length}% {
-        opacity: 0.35;
-      }
-      ${30 * 4 / backgroundsList.length}% {
+      ${fadeOutEnd}% {
         opacity: 0;
       }
       100% {
@@ -125,30 +79,19 @@ const Background = ({animated}) => {
   return (
     <ul className={`${style.background} ${!windowFocused && style.paused }`}>
       <style>{imageAnimatonKeyframes}</style>
-      <style>{videoAnimatonKeyframes}</style>
-      {backgroundsList && backgroundsList.length && backgroundsList.map((item, i) => (
+      {backgroundsList.map((file, i) => (
         <li
-          key={`${item.file}-${i}`}
-          className={`${item.type === TYPE_IMAGE ? style.image : ""} ${item.type === TYPE_VIDEO ? style.video : ""} ${item.filterClassName || ""}`}
+          key={file}
+          className={style.image}
           style={{
-            animationName: item.type === TYPE_IMAGE && imageAnimation || item.type === TYPE_VIDEO && videoAnimation,
-            animationDuration: `${backgroundsList.length * 10}s`,
-            animationDelay: `${i * 10}s`,
+            animationName: imageAnimation,
+            animationDuration: `${backgroundsList.length * SLIDE_DURATION}s`,
+            animationDelay: `${i * SLIDE_DURATION}s`,
             animationTimingFunction: "linear",
             animationIterationCount: "infinite"
           }}
         >
-          {item.type === TYPE_IMAGE && (
-            <img src={item.file} />
-          )}
-          {item.type === TYPE_VIDEO && (
-            <Video src={item.file}>
-              {(video, state, actions) => {
-                windowFocused ? actions.play() : actions.pause()
-                return (video)
-              }}
-            </Video>
-          )}
+          <img src={file} alt="" />
         </li>
       ))}
     </ul>
