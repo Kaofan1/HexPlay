@@ -46,7 +46,7 @@ Wszystkie dane serwera i marki są w `app/configuration/`:
 | --- | --- |
 | `branding.json` | `name` (nazwa w nagłówku), `tagline` (podtytuł), `title` (tytuł okna), `logo` (ścieżka do pliku), `website` |
 | `servers.json` | Serwery: `label`, `address` (`ip:port`), `priority`, `enabled` |
-| `applications.json` | Przyciski linków: `label`, `url`, `icon` (`app/assets/icons/applications/`), `priority`, `enabled` |
+| `applications.json` | Przyciski linków: `label`, `url`, `icon` (`app/assets/icons/applications/`), `priority`, `enabled` (obecnie Discord i strona `hexplay.pl`) |
 | `settings.json` | Domyślna ścieżka do `FiveM.exe` |
 
 Przykład serwera:
@@ -56,7 +56,7 @@ Przykład serwera:
   "main": {
     "label": "HexPlay",
     "priority": 1,
-    "address": "twoj-serwer.pl:30120",
+    "address": "37.221.94.185:30176",
     "enabled": true
   }
 }

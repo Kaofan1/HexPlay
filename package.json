@@ -140,7 +140,7 @@
     "hot",
     "reload"
   ],
-  "homepage": "https://twoj-serwer.pl",
+  "homepage": "https://hexplay.pl/",
   "jest": {
     "testURL": "http://localhost/",
     "moduleNameMapper": {
