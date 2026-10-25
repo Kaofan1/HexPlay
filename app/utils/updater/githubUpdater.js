@@ -286,7 +286,10 @@ export default class GithubUpdater {
   }
 
   async check(force = false) {
-    if (this.checking || this.downloaded) {
+    // Sprawdzamy też wtedy, gdy aktualizacja czeka na instalację: w międzyczasie
+    // może pojawić się nowsza wersja i wtedy lepiej podmienić plik niż
+    // instalować wersję po wersji.
+    if (this.checking) {
       return
     }
 
@@ -316,6 +319,18 @@ export default class GithubUpdater {
 
     if (!isNewer(release.version, app.getVersion())) {
       return
+    }
+
+    if (this.downloaded) {
+      if (!isNewer(release.version, this.downloaded.version)) {
+        // Czeka już instalator tej samej albo nowszej wersji.
+        return
+      }
+
+      log.info(
+        `Replacing prepared update ${this.downloaded.version} with ${release.version}.`
+      )
+      this.discardInstaller()
     }
 
     const destination = path.join(
