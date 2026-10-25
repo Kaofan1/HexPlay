@@ -66,17 +66,6 @@
           cursor: pointer;
         }
       }
-
-      .address {
-        display: flex;
-        justify-content: center;
-        margin-top: 0.75rem;
-        font-size: 1.4rem;
-        letter-spacing: 0.03em;
-        color: $color-text-secondary;
-        user-select: text;
-        cursor: text;
-      }
     }
   }
 

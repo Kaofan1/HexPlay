@@ -111,9 +111,6 @@ const ServerInfo = ({
                 <SVG src="./assets/icons/applications/fivem.svg" />
                 <span>Dołącz do serwera</span>
               </Button>
-              <div className={serverInfoStyle.address}>
-                <span>{address}</span>
-              </div>
             </div>
           )}
           {teamspeak && (
