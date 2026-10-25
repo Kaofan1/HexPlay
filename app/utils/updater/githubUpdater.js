@@ -7,7 +7,11 @@ import path from "path"
 const RELEASES_URL = "https://api.github.com/repos/Kaofan1/HexPlay/releases/latest"
 const INSTALLER_NAME = "HexPlay-Launcher-Setup.exe"
 const REQUEST_TIMEOUT = 60000
-const CHECK_COOLDOWN = 2 * 60 * 1000
+const CHECK_COOLDOWN = 30 * 1000
+
+// GitHub zwraca 304 dla zapytań z pasującym ETagiem, a takie odpowiedzi
+// nie liczą się do limitu API. Dzięki temu można sprawdzać częściej.
+let latestReleaseETag = null
 
 const parseVersion = raw => String(raw || "").trim().replace(/^v/i, "").split(".").map(part => parseInt(part, 10) || 0)
 
@@ -30,7 +34,7 @@ const isNewer = (latest, current) => {
 
 // Używamy sieci Electrona (Chromium), bo Node 12 w Electronie 8 nie mieści
 // długich nagłówków przekierowania plików z GitHuba.
-const request = (url, {headers = {}, timeout = REQUEST_TIMEOUT} = {}) => new Promise((resolve, reject) => {
+const request = (url, {headers = {}, timeout = REQUEST_TIMEOUT, allowNotModified = false} = {}) => new Promise((resolve, reject) => {
   const clientRequest = net.request({method: "GET", url, redirect: "follow"})
 
   Object.keys(headers).forEach(name => clientRequest.setHeader(name, headers[name]))
@@ -42,6 +46,12 @@ const request = (url, {headers = {}, timeout = REQUEST_TIMEOUT} = {}) => new Pro
 
   clientRequest.on("response", response => {
     clearTimeout(timer)
+
+    if (allowNotModified && response.statusCode === 304) {
+      response.resume()
+      resolve(response)
+      return
+    }
 
     if (response.statusCode !== 200) {
       response.resume()
@@ -71,12 +81,23 @@ const readBody = response => new Promise((resolve, reject) => {
 })
 
 const fetchLatestRelease = async () => {
-  const response = await request(RELEASES_URL, {
-    headers: {
-      "User-Agent": "HexPlay-Launcher",
-      Accept: "application/vnd.github+json"
-    }
-  })
+  const headers = {
+    "User-Agent": "HexPlay-Launcher",
+    Accept: "application/vnd.github+json"
+  }
+
+  if (latestReleaseETag) {
+    headers["If-None-Match"] = latestReleaseETag
+  }
+
+  const response = await request(RELEASES_URL, {headers, allowNotModified: true})
+
+  if (response.statusCode === 304) {
+    return null
+  }
+
+  latestReleaseETag = headerValue(response.headers.etag) || latestReleaseETag
+
   const release = JSON.parse(await readBody(response))
 
   if (!release || release.draft || release.prerelease) {

@@ -112,7 +112,7 @@ const ServerInfo = ({
                 <span>Dołącz do serwera</span>
               </Button>
               <div className={serverInfoStyle.address}>
-                <span>Adres serwera: {address}</span>
+                <span>{address}</span>
               </div>
             </div>
           )}

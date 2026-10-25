@@ -19,7 +19,7 @@ import fivemLocationParser from "./utils/parsers/fivemLocationParser";
 import closeFivem from "./utils/fivem-process/closeFivem";
 import GithubUpdater from "./utils/updater/githubUpdater";
 
-const UPDATE_CHECK_INTERVAL = 10 * 60 * 1000;
+const UPDATE_CHECK_INTERVAL = 60 * 1000;
 const FIVEM_CLOSE_TIMEOUT = 15000;
 
 let mainWindow = null;

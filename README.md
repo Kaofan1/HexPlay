@@ -83,7 +83,7 @@ Launcher sprawdza najnowsze wydanie przez GitHub API (`/repos/Kaofan1/HexPlay/re
 
 Przed uruchomieniem instalatora launcher weryfikuje rozmiar pliku oraz sumę SHA-256 z GitHub API, zamyka klienta FiveM (najpierw grzecznie, żeby gra zdążyła rozłączyć się z serwerem, a po chwili wymusza zamknięcie pozostałych procesów), a następnie uruchamia instalator w trybie cichym (`--updated /S --force-run`), który instaluje nową wersję i otwiera launcher ponownie.
 
-Launcher sprawdza aktualizacje przy starcie, co 10 minut oraz po powrocie okna na pierwszy plan, więc nowa wersja pojawia się w **uruchomionej** aplikacji, bez konieczności zamykania jej i otwierania ponownie. W nagłówku widać pasek postępu pobierania, a po pobraniu przycisk **Zainstaluj**.
+Launcher sprawdza aktualizacje przy starcie, co minutę oraz po powrocie okna na pierwszy plan, więc nowa wersja pojawia się w **uruchomionej** aplikacji zwykle w ciągu minuty od publikacji, bez konieczności zamykania jej i otwierania ponownie. W nagłówku widać pasek postępu pobierania, a po pobraniu przycisk **Zainstaluj**. Zapytania są warunkowe (ETag), więc odpowiedzi 304 nie zużywają limitu API GitHuba.
 
 ### Wydanie nowej wersji jednym poleceniem
 
