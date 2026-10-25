@@ -153,6 +153,31 @@
       color: $color-text-secondary;
       font-size: 1.2rem;
     }
+
+    .checkNow {
+      margin-top: 1rem;
+      padding: 1rem 0.6rem;
+      border: 1px solid $color-border;
+      background: rgba($color-text-primary, 0.05);
+      font-size: 1.3rem;
+      text-align: center;
+      cursor: pointer;
+      user-select: none;
+      @include transition(background);
+
+      &:hover {
+        background: $color-background-primary-hover;
+      }
+
+      &[data-disabled="true"] {
+        opacity: 0.5;
+        cursor: not-allowed;
+
+        &:hover {
+          background: rgba($color-text-primary, 0.05);
+        }
+      }
+    }
   }
 
   .message {

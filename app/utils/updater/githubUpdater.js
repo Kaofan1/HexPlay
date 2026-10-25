@@ -236,15 +236,19 @@ const resolveLatestRelease = async () => {
   try {
     return await fetchLatestRelease()
   } catch (error) {
-    if (!isRateLimitError(error)) {
-      throw error
+    // Kanał Atom nie ma limitu zapytań, więc próbujemy go przy każdym
+    // niepowodzeniu API, żeby chwilowa awaria nie ukryła nowej wersji.
+    if (isRateLimitError(error)) {
+      apiBlockedUntil = Math.max(
+        apiBlockedUntil,
+        rateLimitResetAt(error) || Date.now() + RATE_LIMIT_BACKOFF
+      )
+      log.warn("GitHub API limit reached, reading the release feed instead.")
+    } else {
+      log.warn(
+        `GitHub API check failed, reading the release feed instead: ${error.message}`
+      )
     }
-
-    apiBlockedUntil = Math.max(
-      apiBlockedUntil,
-      rateLimitResetAt(error) || Date.now() + RATE_LIMIT_BACKOFF
-    )
-    log.warn("GitHub API limit reached, reading the release feed instead.")
 
     return fetchReleaseFromFeed()
   }
@@ -342,6 +346,17 @@ export default class GithubUpdater {
     return this.downloaded && this.downloaded.path
   }
 
+  // Ręczne sprawdzenie z ustawień. Pobieranie instalatora trwa długo,
+  // więc czekamy tylko na wynik sprawdzenia wersji.
+  async checkNow() {
+    await Promise.race([
+      this.check(true),
+      new Promise(resolve => setTimeout(resolve, 5000))
+    ])
+
+    return this.state()
+  }
+
   async check(force = false) {
     // Sprawdzamy też wtedy, gdy aktualizacja czeka na instalację: w międzyczasie
     // może pojawić się nowsza wersja i wtedy lepiej podmienić plik niż
@@ -359,7 +374,6 @@ export default class GithubUpdater {
 
     try {
       await this.runCheck()
-      this.lastCheckAt = Date.now()
       this.lastCheckError = null
     } catch (error) {
       // Brak internetu albo limit GitHub API nie może blokować launchera.
@@ -372,6 +386,10 @@ export default class GithubUpdater {
 
   async runCheck() {
     const release = await resolveLatestRelease()
+
+    // Data sprawdzenia jest znana już po odpowiedzi GitHuba, a pobieranie
+    // instalatora może trwać kilka minut, więc nie czekamy na nie.
+    this.lastCheckAt = Date.now()
 
     if (!release || !release.version) {
       return

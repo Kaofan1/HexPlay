@@ -1,5 +1,19 @@
 [
   {
+    "version": "1.0.21",
+    "date": "2026-10-25",
+    "added": [
+      "Przycisk Sprawdź teraz w ustawieniach, który od razu szuka nowej wersji."
+    ],
+    "changed": [
+      "Data sprawdzenia pokazuje moment odpowiedzi GitHuba, a nie koniec pobierania instalatora."
+    ],
+    "fixed": [
+      "Chwilowy błąd GitHub API nie ukrywa już nowej wersji, bo launcher czyta też kanał Atom."
+    ],
+    "removed": []
+  },
+  {
     "version": "1.0.20",
     "date": "2026-10-25",
     "added": [

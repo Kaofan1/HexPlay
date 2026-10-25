@@ -75,6 +75,7 @@ const Settings = ({
   const [cacheMessage, setCacheMessage] = useState("")
   const [confirmClear, setConfirmClear] = useState(false)
   const [updateState, setUpdateState] = useState(null)
+  const [updateBusy, setUpdateBusy] = useState(false)
 
   // Sprawdzenie instalacji jest szybkie, a rozmiar cache liczy się
   // osobno w tle, żeby otwarcie ustawień nie zamrażało okna.
@@ -273,6 +274,26 @@ const Settings = ({
     setSettingsActiveAction(false)
   }
 
+  const onCheckUpdatesClick = async () => {
+    if (updateBusy) {
+      return
+    }
+
+    setUpdateBusy(true)
+
+    try {
+      const state = await ipcRenderer.invoke("updater:check")
+
+      if (state) {
+        setUpdateState(state)
+      }
+    } catch (error) {
+      // Bez połączenia zostaje poprzedni stan razem z informacją o błędzie.
+    } finally {
+      setUpdateBusy(false)
+    }
+  }
+
   const installedVersion = (updateState && updateState.current) || remote.app.getVersion()
 
   const latestVersionText = () => {
@@ -304,7 +325,7 @@ const Settings = ({
   }
 
   const lastCheckText = () => {
-    if (!updateState) {
+    if (updateBusy || !updateState) {
       return "Sprawdzanie…"
     }
 
@@ -471,6 +492,13 @@ const Settings = ({
                 " Ostatnie sprawdzenie nie powiodło się, launcher spróbuje ponownie."}
             </div>
           )}
+          <div
+            className={settingsStyle.checkNow}
+            data-disabled={updateBusy}
+            onClick={() => onCheckUpdatesClick()}
+          >
+            {updateBusy ? "Sprawdzanie…" : "Sprawdź teraz"}
+          </div>
         </div>
       </section>
       <section name="exit" className={settingsStyle.section}>

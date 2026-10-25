@@ -230,6 +230,11 @@ app.on('ready', async () => {
     updater ? updater.state() : null
   );
 
+  // Ręczne sprawdzenie z ustawień, gdy gracz nie chce czekać na cykl.
+  ipcMain.handle('updater:check', () =>
+    updater ? updater.checkNow() : null
+  );
+
   // Szybkie sprawdzenie obecności plików, bez liczenia rozmiaru cache.
   ipcMain.handle('fivem:inspect', (event, exePath) =>
     inspectInstall(fivemPathArg(exePath))
