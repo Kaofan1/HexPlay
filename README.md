@@ -15,7 +15,7 @@ FiveM w swoim regulaminie ogranicza zewnętrzne launchery i sposoby łączenia s
 - **Linki społeczności**: dowolna liczba przycisków (Discord, forum, Teamspeak itd.).
 - **Tła multimedialne**: zdjęcia i filmy `.webm` z pokazem slajdów; pauza, gdy okno traci focus.
 - **Automatyczne aktualizacje**: GitHub API + instalator NSIS.
-- **Ustawienia**: wskazanie własnej ścieżki do `FiveM.exe`.
+- **Ustawienia**: wskazanie własnej ścieżki do `FiveM.exe`, sprawdzanie instalacji i czyszczenie cache FiveM.
 
 ## Wymagania
 
@@ -75,7 +75,7 @@ Przykład serwera:
 
 ## Ustawienia launchera
 
-W panelu ustawień (ikona koła zębatego) można zmienić lokalizację `FiveM.exe` oraz wyłączyć **animowane tło**. Po wyłączeniu launcher nie odtwarza wideo ani nie uruchamia animacji CSS, tylko pokazuje jedno statyczne zdjęcie, co zmniejsza obciążenie CPU i GPU na słabszych komputerach. Wybór jest zapisywany w konfiguracji użytkownika i obowiązuje po restarcie aplikacji.
+W panelu ustawień (ikona koła zębatego) można zmienić lokalizację `FiveM.exe`, sprawdzić **stan instalacji** i wyczyścić **cache FiveM**, a także wyłączyć **animowane tło**. Sekcja stanu pokazuje, czy launcher widzi `FiveM.exe` oraz ile miejsca zajmują foldery cache. Przycisk **Wyczyść cache** najpierw zamyka FiveM (pliki są wtedy odblokowane), a następnie usuwa zawartość folderów `cache/browser`, `cache/subprocess`, `server-cache-priv`, `server-cache` i `nui-storage`, zachowując zasoby gry w `server-cache/game`. Przycisk **Otwórz folder** otwiera folder danych FiveM w Eksploratorze. Po wyłączeniu launcher nie odtwarza wideo ani nie uruchamia animacji CSS, tylko pokazuje jedno statyczne zdjęcie, co zmniejsza obciążenie CPU i GPU na słabszych komputerach. Wybór jest zapisywany w konfiguracji użytkownika i obowiązuje po restarcie aplikacji.
 
 ## Aktualizacje
 

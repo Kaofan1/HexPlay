@@ -59,6 +59,81 @@
     }
   }
 
+  .status {
+    background: $color-background-secondary;
+    padding: 1.5rem;
+
+    .statusOk,
+    .statusError {
+      display: flex;
+      align-items: center;
+
+      i {
+        font-size: 1.8rem;
+        margin-right: 0.8rem;
+      }
+    }
+
+    .statusOk {
+      color: #34d399;
+    }
+
+    .statusError {
+      color: $color-danger;
+    }
+
+    .meta {
+      margin-top: 0.6rem;
+      color: $color-text-secondary;
+      font-size: 1.3rem;
+    }
+  }
+
+  .actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-gap: 0.8rem;
+    margin-top: 1rem;
+
+    .actionButton {
+      background: $color-background-secondary;
+      padding: 1.1rem 0.6rem;
+      text-align: center;
+      font-size: 1.3rem;
+      cursor: pointer;
+      user-select: none;
+      @include transition(background);
+
+      &:hover {
+        background: $color-background-primary-hover;
+      }
+
+      &[data-disabled="true"] {
+        opacity: 0.45;
+        cursor: not-allowed;
+
+        &:hover {
+          background: $color-background-secondary;
+        }
+      }
+    }
+
+    .clearAction {
+      grid-column: 1 / -1;
+      border: 1px solid rgba($color-danger, 0.35);
+
+      &:hover {
+        background: rgba($color-danger, 0.16);
+      }
+    }
+  }
+
+  .message {
+    margin-top: 0.8rem;
+    color: $color-text-secondary;
+    font-size: 1.3rem;
+  }
+
   .toggle {
     display: flex;
     align-items: center;

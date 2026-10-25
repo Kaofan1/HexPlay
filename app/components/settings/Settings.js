@@ -1,5 +1,5 @@
-import React, {Fragment, useRef} from "react"
-import {remote} from "electron"
+import React, {Fragment, useEffect, useRef, useState} from "react"
+import {ipcRenderer, remote} from "electron"
 import {connect} from "react-redux"
 import SVG from "react-inlinesvg"
 
@@ -12,6 +12,18 @@ import Button from "../button/Button"
 
 import settingsStyle from "./Settings.module.scss"
 
+const formatBytes = (bytes) => {
+  if (!bytes) {
+    return "0 B"
+  }
+
+  const units = ["B", "KB", "MB", "GB"]
+  const index = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)))
+  const value = bytes / Math.pow(1024, index)
+
+  return `${value.toLocaleString("pl-PL", {maximumFractionDigits: index === 0 ? 0 : 1})} ${units[index]}`
+}
+
 const Settings = ({
   fivemLocation,
   fivemInvalid,
@@ -21,6 +33,78 @@ const Settings = ({
   setSettingsActiveAction
 }) => {
   const fivemField = useRef();
+  const [installInfo, setInstallInfo] = useState(null)
+  const [installBusy, setInstallBusy] = useState(false)
+  const [cacheBusy, setCacheBusy] = useState(false)
+  const [cacheMessage, setCacheMessage] = useState("")
+  const [confirmClear, setConfirmClear] = useState(false)
+
+  const refreshInstall = async () => {
+    setInstallBusy(true)
+
+    try {
+      setInstallInfo(await ipcRenderer.invoke("fivem:inspect", fivemLocation))
+    } catch (error) {
+      setInstallInfo(null)
+    } finally {
+      setInstallBusy(false)
+    }
+  }
+
+  useEffect(() => {
+    refreshInstall()
+  }, [fivemLocation])
+
+  useEffect(() => {
+    if (!confirmClear) {
+      return undefined
+    }
+
+    const timer = setTimeout(() => setConfirmClear(false), 6000)
+    return () => clearTimeout(timer)
+  }, [confirmClear])
+
+  const onOpenFolderClick = () => {
+    ipcRenderer.invoke("fivem:open-folder", fivemLocation)
+  }
+
+  const onClearCacheClick = async () => {
+    if (cacheBusy) {
+      return
+    }
+
+    if (!confirmClear) {
+      setConfirmClear(true)
+      setCacheMessage("Kliknij ponownie, aby potwierdzić. Launcher zamknie FiveM.")
+      return
+    }
+
+    setConfirmClear(false)
+    setCacheBusy(true)
+    setCacheMessage("Zamykanie FiveM i czyszczenie cache…")
+
+    try {
+      const result = await ipcRenderer.invoke("fivem:clear-cache", fivemLocation)
+
+      if (!result.ok) {
+        setCacheMessage("Nie udało się wyczyścić cache. Sprawdź lokalizację FiveM.")
+      } else if (result.errors && result.errors.length > 0) {
+        setCacheMessage(
+          `Usunięto ${formatBytes(result.freedBytes)}, ale części plików nie udało się usunąć.`
+        )
+      } else if (result.freedBytes > 0) {
+        setCacheMessage(`Usunięto ${formatBytes(result.freedBytes)} cache.`)
+      } else {
+        setCacheMessage("Cache było już puste.")
+      }
+
+      setInstallInfo(await ipcRenderer.invoke("fivem:inspect", fivemLocation))
+    } catch (error) {
+      setCacheMessage("Nie udało się wyczyścić cache. Spróbuj ponownie.")
+    } finally {
+      setCacheBusy(false)
+    }
+  }
 
   const onFivemClick = () => {
     fivemField.current.click()
@@ -69,6 +153,71 @@ const Settings = ({
             Wybierz prawidłową lokalizację FiveM.exe
           </div>
         </div>
+      </section>
+      <section name="fivem-install" className={settingsStyle.section}>
+        <div className={settingsStyle.title}>
+          <h2>Stan instalacji</h2>
+          <div
+            className={settingsStyle.action}
+            title="Sprawdź ponownie"
+            onClick={() => refreshInstall()}
+          >
+            <i className="material-icon">refresh</i>
+          </div>
+        </div>
+        <div className={settingsStyle.status}>
+          {!installInfo && (
+            <div className={settingsStyle.meta}>Sprawdzanie instalacji…</div>
+          )}
+          {installInfo && installInfo.found && (
+            <Fragment>
+              <div className={settingsStyle.statusOk}>
+                <i className="material-icon">check_circle</i>
+                <span>FiveM znaleziony</span>
+              </div>
+              <div className={settingsStyle.meta}>
+                {`Cache: ${formatBytes(installInfo.cacheBytes)}`}
+              </div>
+              {installInfo.running && (
+                <div className={settingsStyle.meta}>
+                  FiveM jest uruchomiony. Czyszczenie cache go zamknie.
+                </div>
+              )}
+            </Fragment>
+          )}
+          {installInfo && !installInfo.found && (
+            <div className={settingsStyle.statusError}>
+              <i className="material-icon">error</i>
+              <span>Nie znaleziono FiveM.exe</span>
+            </div>
+          )}
+        </div>
+        <div className={settingsStyle.actions}>
+          <div
+            className={settingsStyle.actionButton}
+            data-disabled={installBusy}
+            onClick={() => !installBusy && refreshInstall()}
+          >
+            Sprawdź
+          </div>
+          <div
+            className={settingsStyle.actionButton}
+            data-disabled={!installInfo || !installInfo.found}
+            onClick={() => installInfo && installInfo.found && onOpenFolderClick()}
+          >
+            Otwórz folder
+          </div>
+          <div
+            className={`${settingsStyle.actionButton} ${settingsStyle.clearAction}`}
+            data-disabled={cacheBusy || !installInfo || !installInfo.found}
+            onClick={() => !(cacheBusy || !installInfo || !installInfo.found) && onClearCacheClick()}
+          >
+            {confirmClear ? "Potwierdź czyszczenie" : "Wyczyść cache"}
+          </div>
+        </div>
+        {cacheMessage && (
+          <div className={settingsStyle.message}>{cacheMessage}</div>
+        )}
       </section>
       <section name="background" className={settingsStyle.section}>
         <div className={settingsStyle.title}>
