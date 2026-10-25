@@ -1,8 +1,9 @@
 import {app, net} from "electron"
 import log from "electron-log"
-import crypto from "crypto"
 import fs from "fs"
 import path from "path"
+
+import {normalizeDigest, verifyInstallerFile} from "./installerDigest"
 
 const RELEASES_URL = "https://api.github.com/repos/Kaofan1/HexPlay/releases/latest"
 const INSTALLER_NAME = "HexPlay-Launcher-Setup.exe"
@@ -114,20 +115,11 @@ const fetchLatestRelease = async () => {
     version: String(release.tag_name || "").replace(/^v/i, ""),
     url: asset.browser_download_url,
     size: asset.size,
-    digest: asset.digest || null
+    digest: normalizeDigest(asset.digest)
   }
 }
 
-const sha256 = filePath => new Promise((resolve, reject) => {
-  const hash = crypto.createHash("sha256")
-  const stream = fs.createReadStream(filePath)
-
-  stream.on("data", chunk => hash.update(chunk))
-  stream.on("end", () => resolve(`sha256:${hash.digest("hex")}`))
-  stream.on("error", reject)
-})
-
-const downloadInstaller = async (asset, destination, onProgress) => {
+export const downloadInstaller = async (asset, destination, onProgress) => {
   const response = await request(asset.url, {
     headers: {
       "User-Agent": "HexPlay-Launcher",
@@ -162,19 +154,19 @@ const downloadInstaller = async (asset, destination, onProgress) => {
   }
 
   const downloadedSize = fs.statSync(temporaryPath).size
+  const verification = await verifyInstallerFile(temporaryPath, {
+    size: asset.size,
+    digest: asset.digest
+  })
 
-  if (asset.size && downloadedSize !== asset.size) {
+  if (!verification.ok) {
     fs.unlinkSync(temporaryPath)
-    throw new Error(`Niekompletny plik aktualizacji (${downloadedSize} z ${asset.size} bajtów).`)
-  }
 
-  if (asset.digest && asset.digest.startsWith("sha256:")) {
-    const actualDigest = await sha256(temporaryPath)
-
-    if (actualDigest !== asset.digest) {
-      fs.unlinkSync(temporaryPath)
-      throw new Error("Suma kontrolna pobranej aktualizacji jest nieprawidłowa.")
+    if (verification.reason === "size") {
+      throw new Error(`Niekompletny plik aktualizacji (${downloadedSize} z ${asset.size} bajtów).`)
     }
+
+    throw new Error("Suma kontrolna pobranej aktualizacji jest nieprawidłowa.")
   }
 
   if (fs.existsSync(destination)) {
@@ -239,9 +231,26 @@ export default class GithubUpdater {
       `HexPlay-Launcher-Setup-${release.version}.exe`
     )
 
-    if (fs.existsSync(destination) && fs.statSync(destination).size === release.size) {
-      this.setDownloaded(release.version, destination)
-      return
+    if (fs.existsSync(destination)) {
+      // Plik z poprzedniego uruchomienia sprawdzamy tak samo jak świeżo
+      // pobrany, bo mógł zostać uszkodzony albo podmieniony na dysku.
+      const cached = await verifyInstallerFile(destination, {
+        size: release.size,
+        digest: release.digest
+      })
+
+      if (cached.ok) {
+        this.setDownloaded(release.version, destination, release)
+        return
+      }
+
+      log.warn(`Cached update installer rejected: ${cached.reason}`)
+
+      try {
+        fs.unlinkSync(destination)
+      } catch (error) {
+        log.warn("Could not remove cached installer: ", error.message)
+      }
     }
 
     this.onStatus(
@@ -260,15 +269,56 @@ export default class GithubUpdater {
       )
     })
 
-    this.setDownloaded(release.version, destination)
+    this.setDownloaded(release.version, destination, release)
   }
 
-  setDownloaded(version, installerPath) {
-    this.downloaded = {version, path: installerPath}
+  setDownloaded(version, installerPath, {size = 0, digest = null} = {}) {
+    this.downloaded = {version, path: installerPath, size, digest}
     this.onStatus(
       "update_downloaded",
       `Nowa wersja ${version} gotowa. FiveM zostanie zamknięty`,
       {version}
     )
+  }
+
+  // Sprawdzane bezpośrednio przed uruchomieniem instalatora, bo plik mógł
+  // zmienić się już po pobraniu.
+  async verifyInstaller() {
+    if (!this.downloaded) {
+      return {ok: false, reason: "missing"}
+    }
+
+    const {path: installerPath, size, digest} = this.downloaded
+    const result = await verifyInstallerFile(installerPath, {size, digest})
+
+    if (!result.ok) {
+      log.warn(`Update installer rejected before launch: ${result.reason}`)
+      this.discardInstaller()
+      return result
+    }
+
+    if (result.reason === "unverified") {
+      log.warn("GitHub did not provide a checksum for the update installer.")
+    }
+
+    return result
+  }
+
+  discardInstaller() {
+    const installerPath = this.downloaded && this.downloaded.path
+
+    this.downloaded = null
+
+    if (!installerPath) {
+      return
+    }
+
+    try {
+      if (fs.existsSync(installerPath)) {
+        fs.unlinkSync(installerPath)
+      }
+    } catch (error) {
+      log.warn("Could not remove update installer: ", error.message)
+    }
   }
 }

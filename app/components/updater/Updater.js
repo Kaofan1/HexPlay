@@ -16,6 +16,10 @@ const statusToState = (data) => {
     return {state: "ready", message: data.message, percent: 100}
   }
 
+  if (data.status === "update_verifying") {
+    return {state: "installing", message: data.message, percent: 100}
+  }
+
   if (data.status === "update_installing") {
     return {state: "installing", message: data.message, percent: 100}
   }

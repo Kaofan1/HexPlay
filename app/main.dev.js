@@ -55,6 +55,29 @@ const installUpdate = async () => {
   }
 
   updateInstallStarted = true;
+  sendStatusToWindow('update_verifying', 'Sprawdzanie sumy kontrolnej aktualizacji…');
+
+  // Sumę sprawdzamy przed zamknięciem FiveM, żeby przy uszkodzonym pliku
+  // nie wyrzucać gracza z serwera bez powodu.
+  let verification;
+
+  try {
+    verification = await updater.verifyInstaller();
+  } catch (error) {
+    log.warn('Could not verify update installer:', error.message);
+    verification = {ok: false, reason: 'checksum'};
+  }
+
+  if (!verification.ok) {
+    updateInstallStarted = false;
+    sendStatusToWindow(
+      'update_available',
+      'Plik aktualizacji był uszkodzony. Pobieram go ponownie…'
+    );
+    updater.check(true);
+    return;
+  }
+
   sendStatusToWindow('update_installing', 'Zamykanie FiveM i instalowanie aktualizacji…');
 
   try {
