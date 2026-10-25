@@ -5,14 +5,23 @@ import path from "path"
 
 import {normalizeDigest, verifyInstallerFile} from "./installerDigest"
 
-const RELEASES_URL = "https://api.github.com/repos/Kaofan1/HexPlay/releases/latest"
+const OWNER = "Kaofan1"
+const REPO = "HexPlay"
 const INSTALLER_NAME = "HexPlay-Launcher-Setup.exe"
+const RELEASES_URL = `https://api.github.com/repos/${OWNER}/${REPO}/releases/latest`
+// Kanał Atom z wydaniami nie jest objęty limitem API, więc służy jako zapas,
+// gdy limit zapytań do api.github.com się wyczerpie.
+const RELEASES_FEED_URL = `https://github.com/${OWNER}/${REPO}/releases.atom`
 const REQUEST_TIMEOUT = 60000
 const CHECK_COOLDOWN = 30 * 1000
+const RATE_LIMIT_BACKOFF = 5 * 60 * 1000
 
 // GitHub zwraca 304 dla zapytań z pasującym ETagiem, a takie odpowiedzi
 // nie liczą się do limitu API. Dzięki temu można sprawdzać częściej.
 let latestReleaseETag = null
+
+// Do kiedy nie ma sensu pytać API, bo limit 60 zapytań na godzinę się skończył.
+let apiBlockedUntil = 0
 
 const parseVersion = raw => String(raw || "").trim().replace(/^v/i, "").split(".").map(part => parseInt(part, 10) || 0)
 
@@ -35,6 +44,25 @@ const isNewer = (latest, current) => {
 
 // Używamy sieci Electrona (Chromium), bo Node 12 w Electronie 8 nie mieści
 // długich nagłówków przekierowania plików z GitHuba.
+const headerValue = value => (Array.isArray(value) ? value[0] : value)
+
+const rememberRateLimit = headers => {
+  const remaining = Number(headerValue(headers["x-ratelimit-remaining"]))
+  const reset = Number(headerValue(headers["x-ratelimit-reset"]))
+
+  if (remaining === 0 && reset > 0) {
+    apiBlockedUntil = Math.max(apiBlockedUntil, reset * 1000)
+  }
+}
+
+const rateLimitResetAt = error => {
+  const reset = Number(headerValue((error && error.headers && error.headers["x-ratelimit-reset"]) || 0))
+
+  return reset > 0 ? reset * 1000 : 0
+}
+
+const isRateLimitError = error => !!error && (error.statusCode === 403 || error.statusCode === 429)
+
 const request = (url, {headers = {}, timeout = REQUEST_TIMEOUT, allowNotModified = false} = {}) => new Promise((resolve, reject) => {
   const clientRequest = net.request({method: "GET", url, redirect: "follow"})
 
@@ -47,6 +75,7 @@ const request = (url, {headers = {}, timeout = REQUEST_TIMEOUT, allowNotModified
 
   clientRequest.on("response", response => {
     clearTimeout(timer)
+    rememberRateLimit(response.headers || {})
 
     if (allowNotModified && response.statusCode === 304) {
       response.resume()
@@ -56,7 +85,10 @@ const request = (url, {headers = {}, timeout = REQUEST_TIMEOUT, allowNotModified
 
     if (response.statusCode !== 200) {
       response.resume()
-      reject(new Error(`GitHub odpowiedział HTTP ${response.statusCode}`))
+      const error = new Error(`GitHub odpowiedział HTTP ${response.statusCode}`)
+      error.statusCode = response.statusCode
+      error.headers = response.headers || {}
+      reject(error)
       return
     }
 
@@ -70,8 +102,6 @@ const request = (url, {headers = {}, timeout = REQUEST_TIMEOUT, allowNotModified
 
   clientRequest.end()
 })
-
-const headerValue = value => (Array.isArray(value) ? value[0] : value)
 
 const readBody = response => new Promise((resolve, reject) => {
   const chunks = []
@@ -119,6 +149,67 @@ const fetchLatestRelease = async () => {
   }
 }
 
+const feedEntryPattern = /<entry>[\s\S]*?<\/entry>/i
+const feedLinkPattern = /<link[^>]+href="([^"]+releases\/tag\/[^"]+)"/i
+const feedTagPattern = /releases\/tag\/([^/"?#]+)/i
+const feedChecksumPattern = /SHA-256:\s*([a-f\d]{64})/i
+
+// Odczyt najnowszego wydania z kanału Atom. Sumę kontrolną bierzemy z opisu
+// release'u, bo poza API nie ma pola digest, a bez sumy nie instalujemy pliku.
+const fetchReleaseFromFeed = async () => {
+  const response = await request(RELEASES_FEED_URL, {
+    headers: {
+      "User-Agent": "HexPlay-Launcher",
+      Accept: "application/atom+xml"
+    }
+  })
+
+  const feed = await readBody(response)
+  const entry = feedEntryPattern.exec(feed)
+
+  if (!entry) {
+    return null
+  }
+
+  const link = feedLinkPattern.exec(entry[0])
+  const tag = link && feedTagPattern.exec(link[1])
+
+  if (!tag) {
+    return null
+  }
+
+  const checksum = feedChecksumPattern.exec(entry[0])
+
+  return {
+    version: tag[1].replace(/^v/i, ""),
+    url: `https://github.com/${OWNER}/${REPO}/releases/download/${tag[1]}/${INSTALLER_NAME}`,
+    size: 0,
+    digest: checksum ? normalizeDigest(`sha256:${checksum[1]}`) : null
+  }
+}
+
+const resolveLatestRelease = async () => {
+  if (Date.now() < apiBlockedUntil) {
+    return fetchReleaseFromFeed()
+  }
+
+  try {
+    return await fetchLatestRelease()
+  } catch (error) {
+    if (!isRateLimitError(error)) {
+      throw error
+    }
+
+    apiBlockedUntil = Math.max(
+      apiBlockedUntil,
+      rateLimitResetAt(error) || Date.now() + RATE_LIMIT_BACKOFF
+    )
+    log.warn("GitHub API limit reached, reading the release feed instead.")
+
+    return fetchReleaseFromFeed()
+  }
+}
+
 export const downloadInstaller = async (asset, destination, onProgress) => {
   const response = await request(asset.url, {
     headers: {
@@ -127,6 +218,8 @@ export const downloadInstaller = async (asset, destination, onProgress) => {
     }
   })
   const total = Number(headerValue(response.headers["content-length"])) || asset.size || 0
+  // Kanał Atom nie podaje rozmiaru, więc bierzemy go z nagłówka odpowiedzi.
+  const expectedSize = asset.size || total
   const temporaryPath = `${destination}.part`
 
   await fs.promises.mkdir(path.dirname(destination), {recursive: true})
@@ -155,7 +248,7 @@ export const downloadInstaller = async (asset, destination, onProgress) => {
 
   const downloadedSize = fs.statSync(temporaryPath).size
   const verification = await verifyInstallerFile(temporaryPath, {
-    size: asset.size,
+    size: expectedSize,
     digest: asset.digest
   })
 
@@ -163,7 +256,7 @@ export const downloadInstaller = async (asset, destination, onProgress) => {
     fs.unlinkSync(temporaryPath)
 
     if (verification.reason === "size") {
-      throw new Error(`Niekompletny plik aktualizacji (${downloadedSize} z ${asset.size} bajtów).`)
+      throw new Error(`Niekompletny plik aktualizacji (${downloadedSize} z ${expectedSize} bajtów).`)
     }
 
     throw new Error("Suma kontrolna pobranej aktualizacji jest nieprawidłowa.")
@@ -215,7 +308,7 @@ export default class GithubUpdater {
   }
 
   async runCheck() {
-    const release = await fetchLatestRelease()
+    const release = await resolveLatestRelease()
 
     if (!release || !release.version) {
       return
