@@ -14,6 +14,7 @@ import MenuBuilder from './menu';
 
 import {spawn, exec, execFile, fork} from "child_process";
 import fs from "fs";
+import path from "path";
 
 import closeFivem, {listFivemProcessIds} from "./utils/fivem-process/closeFivem";
 import {inspectInstall, measureCache, clearCache} from "./utils/fivem-install/fivemInstall";
@@ -23,6 +24,7 @@ import {
   serverAddressArg,
   fetchServerStatus
 } from "./utils/fivem-connection/fivemConnection";
+import {saveJoinLog, openSavedLog} from "./utils/fivem-log/fivemLog";
 
 const UPDATE_CHECK_INTERVAL = 60 * 1000;
 const FIVEM_CLOSE_TIMEOUT = 15000;
@@ -40,6 +42,9 @@ let updateInstallStarted = false;
 
 let processStateCache = {at: 0, running: false};
 let cacheClearInProgress = false;
+
+// Kopie logów FiveM trzymamy w folderze danych launchera, a nie w folderze gry.
+const joinLogsDir = () => path.join(app.getPath('userData'), 'logs');
 
 const fivemPathArg = (value) =>
   typeof value === 'string' && value.length <= 1024 ? value : '';
@@ -330,12 +335,33 @@ app.on('ready', async () => {
 
     if (result.ok) {
       log.info(`Join ${payload.address}: launched through ${result.method}.`);
-    } else {
-      log.warn(`Join ${payload.address} failed: ${result.error}.`);
+      return result;
     }
 
-    return result;
+    log.warn(`Join ${payload.address} failed: ${result.error}.`);
+
+    // Nieudane dołączenie zapisujemy razem z logiem FiveM, żeby gracz miał
+    // jeden plik do podesłania i mógł go otworzyć z okna launchera.
+    let logPath = null;
+
+    try {
+      logPath = saveJoinLog({
+        exePath: payload.exePath,
+        address: serverAddressArg(payload.address),
+        error: result.error,
+        method: result.method,
+        logsDir: joinLogsDir()
+      });
+    } catch (error) {
+      log.warn('Could not save FiveM log:', error.message);
+    }
+
+    return {...result, logPath};
   });
+
+  ipcMain.handle('fivem:open-log', (event, logPath) =>
+    openSavedLog(logPath, joinLogsDir(), (target) => shell.openItem(target))
+  );
 
   ipcMain.handle('fivem:open-folder', (event, exePath) => {
     const info = inspectInstall(fivemPathArg(exePath));

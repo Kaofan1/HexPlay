@@ -1,5 +1,20 @@
 [
   {
+    "version": "1.0.24",
+    "date": "2026-10-25",
+    "added": [
+      "Przycisk Otwórz log FiveM, który pojawia się, gdy dołączenie do serwera się nie uda."
+    ],
+    "changed": [
+      "Przy nieudanym dołączaniu launcher zapisuje kopię logu FiveM razem z adresem serwera i powodem błędu.",
+      "Launcher trzyma dziesięć ostatnich kopii logów i usuwa starsze."
+    ],
+    "fixed": [
+      "Nieudane dołączanie pokazuje teraz komunikat zamiast pustego miejsca pod przyciskiem."
+    ],
+    "removed": []
+  },
+  {
     "version": "1.0.23",
     "date": "2026-10-25",
     "added": [],

@@ -38,6 +38,7 @@ const ServerInfo = ({
   const [timer, setTimer] = useState(0)
   const [joining, setJoining] = useState(false)
   const [joinMessage, setJoinMessage] = useState("")
+  const [joinLogPath, setJoinLogPath] = useState("")
 
   useEffect(() => {
     updateServerStatusAction(server.id)
@@ -68,12 +69,18 @@ const ServerInfo = ({
 
     setJoining(true)
     setJoinMessage("Uruchamianie FiveM…")
+    setJoinLogPath("")
 
     try {
       const result = await ipcRenderer.invoke("fivem:join", {
         address: serverAddress,
         exePath: fivemLocation
       })
+
+      // Log zapisany przez proces główny pozwala otworzyć szczegóły błędu.
+      if (result && result.logPath) {
+        setJoinLogPath(result.logPath)
+      }
 
       if (result && result.ok && result.method === "running") {
         setJoinMessage("Łączenie z serwerem…")
@@ -84,7 +91,7 @@ const ServerInfo = ({
       } else if (result && result.error === "invalid_address") {
         setJoinMessage("Adres serwera jest niepoprawny.")
       } else {
-        setJoinMessage("")
+        setJoinMessage("Nie udało się dołączyć do serwera.")
         setFivemInvalidAction(true)
       }
     } catch (error) {
@@ -133,6 +140,18 @@ const ServerInfo = ({
               </Button>
               {joinMessage && (
                 <div className={serverInfoStyle.description}>{joinMessage}</div>
+              )}
+              {joinLogPath && (
+                <Button
+                  to="/"
+                  className={serverInfoStyle.logButton}
+                  onClick={e => {
+                    e.preventDefault()
+                    ipcRenderer.invoke("fivem:open-log", joinLogPath)
+                  }}
+                >
+                  <span>Otwórz log FiveM</span>
+                </Button>
               )}
             </div>
           )}
