@@ -1,8 +1,7 @@
 export const SET_SERVERS = "SET_SERVERS"
 export const UPDATE_SERVER = "UPDATE_SERVER"
 
-import fetchServerInfo from "../../utils/server-fetch/fetchServerInfo"
-import fetchServerPlayers from "../../utils/server-fetch/fetchServerPlayers"
+import fetchServerStatus from "../../utils/server-fetch/fetchServerStatus"
 
 import {setServer} from "../settings/settings.actions"
 
@@ -27,19 +26,20 @@ export const updateServerStatus = (serverId) => {
     const serversList = getState().servers
     const server = serversList.find(s => s.id === serverId)
 
-    const serverInfo = await fetchServerInfo(server.address)
-    const serverPlayers = await fetchServerPlayers(server.address)
+    const status = await fetchServerStatus(server.address)
 
     let serverObject = {}
-    if (serverInfo) {
+    if (status && status.info) {
+      const vars = status.info.vars || {}
+
       serverObject = {
         ...server,
         status: {
           ...server.status,
           online: true,
-          players_online: serverPlayers.length,
-          players_max: serverInfo.vars.sv_maxClients,
-          players_list: serverPlayers
+          players_online: status.players.length,
+          players_max: vars.sv_maxClients || null,
+          players_list: status.players
         }
       }
     } else {

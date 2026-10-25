@@ -15,6 +15,7 @@ const Button = ({
   primary,
   danger,
   disabled,
+  onClick: onPropClick,
   ...other
 }) => {
   let Tag = null
@@ -45,9 +46,20 @@ const Button = ({
   }
   const classNames = classNamesArray.join(' ')
 
-  const onClick = () => {
-    if (!disabled && href) {
+  const onClick = (event) => {
+    if (disabled) {
+      event.preventDefault()
+      return
+    }
+
+    if (href) {
       shell.openExternal(href)
+    }
+
+    // Klik niżej trafia w <div> z treścią, więc obsługę przenosimy tutaj,
+    // żeby działała na całej powierzchni przycisku.
+    if (onPropClick) {
+      onPropClick(event)
     }
   }
 

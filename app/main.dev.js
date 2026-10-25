@@ -15,10 +15,14 @@ import MenuBuilder from './menu';
 import {spawn, exec, execFile, fork} from "child_process";
 import fs from "fs";
 
-import fivemLocationParser from "./utils/parsers/fivemLocationParser";
 import closeFivem, {listFivemProcessIds} from "./utils/fivem-process/closeFivem";
 import {inspectInstall, measureCache, clearCache} from "./utils/fivem-install/fivemInstall";
 import GithubUpdater from "./utils/updater/githubUpdater";
+import {
+  launchFivem as startFivem,
+  serverAddressArg,
+  fetchServerStatus
+} from "./utils/fivem-connection/fivemConnection";
 
 const UPDATE_CHECK_INTERVAL = 60 * 1000;
 const FIVEM_CLOSE_TIMEOUT = 15000;
@@ -304,6 +308,35 @@ app.on('ready', async () => {
     }
   });
 
+  // Status serwera czytamy w procesie głównym, żeby ominąć CORS.
+  ipcMain.handle('server:status', async (event, payload = {}) => {
+    const status = await fetchServerStatus(payload.address);
+
+    if (!status.ok) {
+      log.info(`Server ${serverAddressArg(payload.address)} status: ${status.error}`);
+    }
+
+    return status;
+  });
+
+  // Dołączanie do serwera. Zwraca wynik, żeby okno mogło pokazać komunikat
+  // zamiast milczeć, gdy gry nie da się uruchomić.
+  ipcMain.handle('fivem:join', async (event, payload = {}) => {
+    const result = await startFivem({
+      address: payload.address,
+      exePath: payload.exePath,
+      openProtocol: (url) => shell.openExternal(url)
+    });
+
+    if (result.ok) {
+      log.info(`Join ${payload.address}: launched through ${result.method}.`);
+    } else {
+      log.warn(`Join ${payload.address} failed: ${result.error}.`);
+    }
+
+    return result;
+  });
+
   ipcMain.handle('fivem:open-folder', (event, exePath) => {
     const info = inspectInstall(fivemPathArg(exePath));
     const target = info.folderExists ? info.dataDir : info.installDir;
@@ -320,42 +353,17 @@ app.on('ready', async () => {
       installUpdate();
     }
     if (data.action === "fivem_process") {
-      if (/(FiveM.exe)$/.test(data.payload.command)) {
-        const fivemURL = fivemLocationParser(data.payload.command);
-        fs.access(fivemURL, fs.F_OK, (err) => {
-          if (err) {
-            sendStatusToWindow('fivem_invalid', 'Nieprawidłowa lokalizacja FiveM.');
-            return
-          }
-
-          // const fivemProcess = spawn(
-          //   `"${data.payload.command}"`,
-          //   data.payload.arguments,
-          //   {shell: true}
-          // );
-
-          const fivemProcess = spawn(
-            "cmd.exe",
-            [`${data.payload.command} +connect ${data.payload.path}`],
-            {shell: true}
-            // {}
-          );
-
-          // const fivemProcess = spawn(
-          //   // "cmd.exe",
-          //   data.payload.command,
-          //   // [`${data.payload.command} +connect ${data.payload.path}`],
-          //   [],
-          //   {
-          //     // detached: true,
-          //     // stdio: [ 'ignore', 'ignore', 'ignore' ]
-          //   }
-          // );
-
-        })
-      } else {
-        sendStatusToWindow('fivem_invalid', 'Invalid FiveM location.');
-      }
+      // Starsza droga wywołania, zachowana dla zgodności. Wynik idzie do okna
+      // komunikatem statusu, tak samo jak przy nowym fivem:join.
+      startFivem({
+        address: data.payload.path,
+        exePath: data.payload.command,
+        openProtocol: (url) => shell.openExternal(url)
+      }).then((result) => {
+        if (!result.ok) {
+          sendStatusToWindow('fivem_invalid', 'Nieprawidłowa lokalizacja FiveM.');
+        }
+      });
     }
   });
 

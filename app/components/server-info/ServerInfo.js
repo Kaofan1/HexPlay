@@ -36,6 +36,8 @@ const ServerInfo = ({
   }, [serverId])
 
   const [timer, setTimer] = useState(0)
+  const [joining, setJoining] = useState(false)
+  const [joinMessage, setJoinMessage] = useState("")
 
   useEffect(() => {
     updateServerStatusAction(server.id)
@@ -57,22 +59,36 @@ const ServerInfo = ({
     return () => ipcRenderer.removeListener("status", onStatus)
   }, [setFivemInvalidAction])
 
-  const onJoinClick = (e, serverAddress) => {
+  const onJoinClick = async (e, serverAddress) => {
     e.preventDefault()
-    ipcRenderer.send('mainprocess_action', {
-      action: "fivem_process",
-      payload: {
-        command: fivemLocation,
-        arguments: [`fivem://connect/${serverAddress}`],
-        path: serverAddress
+
+    if (joining) {
+      return
+    }
+
+    setJoining(true)
+    setJoinMessage("Uruchamianie FiveM…")
+
+    try {
+      const result = await ipcRenderer.invoke("fivem:join", {
+        address: serverAddress,
+        exePath: fivemLocation
+      })
+
+      if (result && result.ok) {
+        setJoinMessage("FiveM się uruchamia, za chwilę połączysz się z serwerem.")
+      } else if (result && result.error === "invalid_address") {
+        setJoinMessage("Adres serwera jest niepoprawny.")
+      } else {
+        setJoinMessage("")
+        setFivemInvalidAction(true)
       }
-    })
-    console.log("[@DEUBG] command: ", `${fivemLocation} +connect ${serverAddress}`)
-    // setTimeout(() => {
-    //   if (typeof window !== "undefined") {
-    //     window.location.href = `fivem://connect/${serverAddress}`
-    //   }
-    // }, 1000)
+    } catch (error) {
+      setJoinMessage("")
+      setFivemInvalidAction(true)
+    } finally {
+      setJoining(false)
+    }
   }
 
   let players = null
@@ -107,10 +123,13 @@ const ServerInfo = ({
         <div className={serverInfoStyle.actions}>
           {address && (
             <div className={serverInfoStyle.action}>
-              <Button to="/" onClick={e => (online && onJoinClick(e, address))} primary disabled={!online}>
+              <Button to="/" onClick={e => onJoinClick(e, address)} primary>
                 <SVG src="./assets/icons/applications/fivem.svg" />
                 <span>Dołącz do serwera</span>
               </Button>
+              {joinMessage && (
+                <div className={serverInfoStyle.description}>{joinMessage}</div>
+              )}
             </div>
           )}
           {teamspeak && (

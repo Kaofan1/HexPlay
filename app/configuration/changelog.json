@@ -1,5 +1,22 @@
 [
   {
+    "version": "1.0.22",
+    "date": "2026-10-25",
+    "added": [
+      "Komunikat pod przyciskiem Dołącz do serwera, który pokazuje, że FiveM się uruchamia."
+    ],
+    "changed": [
+      "Dołączanie korzysta z protokołu fivem://, więc działa też w już uruchomionej grze.",
+      "Status serwera odświeża się jednym zapytaniem, bez mnożenia połączeń."
+    ],
+    "fixed": [
+      "Przycisk Dołącz do serwera naprawdę uruchamia grę i łączy z serwerem.",
+      "Status serwera i lista graczy znów się wczytują, bo zapytanie omija blokadę CORS.",
+      "Chwilowy brak odpowiedzi serwera nie udaje już serwera offline."
+    ],
+    "removed": []
+  },
+  {
     "version": "1.0.21",
     "date": "2026-10-25",
     "added": [
