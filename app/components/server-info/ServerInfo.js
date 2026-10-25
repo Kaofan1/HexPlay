@@ -75,8 +75,12 @@ const ServerInfo = ({
         exePath: fivemLocation
       })
 
-      if (result && result.ok) {
-        setJoinMessage("FiveM się uruchamia, za chwilę połączysz się z serwerem.")
+      if (result && result.ok && result.method === "running") {
+        setJoinMessage("Łączenie z serwerem…")
+      } else if (result && result.ok && result.method === "client") {
+        setJoinMessage("FiveM się uruchomił, łączenie z serwerem…")
+      } else if (result && result.ok) {
+        setJoinMessage("FiveM się uruchamia. Dołącz jeszcze raz za chwilę.")
       } else if (result && result.error === "invalid_address") {
         setJoinMessage("Adres serwera jest niepoprawny.")
       } else {

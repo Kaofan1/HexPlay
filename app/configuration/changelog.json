@@ -1,5 +1,18 @@
 [
   {
+    "version": "1.0.23",
+    "date": "2026-10-25",
+    "added": [],
+    "changed": [
+      "Dołączanie przy zimnym starcie najpierw uruchamia klienta FiveM, a dopiero potem wysyła adres serwera.",
+      "Launcher rozpoznaje uruchomioną grę i wtedy tylko łączy z serwerem."
+    ],
+    "fixed": [
+      "FiveM nie wywala się już przy łączeniu z serwerem, gdy gra była wyłączona."
+    ],
+    "removed": []
+  },
+  {
     "version": "1.0.22",
     "date": "2026-10-25",
     "added": [

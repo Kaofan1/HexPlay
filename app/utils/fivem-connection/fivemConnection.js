@@ -1,6 +1,6 @@
 import fs from "fs"
 import http from "http"
-import {spawn} from "child_process"
+import {execFile, spawn} from "child_process"
 
 // Adres serwera trafia do polecenia gry, więc dopuszczamy tylko postać
 // IP:port lub host:port. Dzięki temu nic obcego nie uruchomi się w grze.
@@ -59,32 +59,118 @@ export const spawnDetached = (file, args) => {
   }
 }
 
-// Dołączanie do serwera: najpierw protokół fivem://, bo obsługuje każdą
-// instalację i wznawia połączenie w już uruchomionej grze, a gdy system nie
-// ma zarejestrowanego protokołu, uruchamiamy plik z ustawień.
-export const launchFivem = async ({address, exePath, openProtocol} = {}) => {
+const GAME_PROCESS_PATTERN = /^fivem_b\d+_gtaprocess\.exe$/
+
+// Nazwy procesów wystarczą, żeby rozpoznać, czy klient i gra już działają.
+export const listProcessNames = () =>
+  new Promise((resolve) => {
+    try {
+      execFile(
+        "tasklist",
+        ["/FO", "CSV", "/NH"],
+        {windowsHide: true, maxBuffer: 4 * 1024 * 1024, timeout: 8000},
+        (error, stdout) => {
+          if (error) {
+            resolve([])
+            return
+          }
+
+          const lines = String(stdout || "").match(/^"[^"]+"/gm) || []
+          const names = lines.map((entry) => entry.slice(1, -1).toLowerCase())
+
+          resolve(names)
+        }
+      )
+    } catch (error) {
+      resolve([])
+    }
+  })
+
+export const isGameRunning = (names) =>
+  Array.isArray(names) && names.some((name) => GAME_PROCESS_PATTERN.test(name))
+
+export const isClientRunning = (names) =>
+  Array.isArray(names) && names.some((name) => /^fivem.*\.exe$/.test(name))
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+// Czekamy, aż klient FiveM uruchomi grę. Dopiero wtedy przekazanie adresu
+// przez fivem:// łączy działającą grę, zamiast startować klienta z argumentem.
+const waitForGame = async ({listProcesses, wait, timeout, settle}) => {
+  const deadline = Date.now() + timeout
+
+  while (Date.now() < deadline) {
+    if (isGameRunning(await listProcesses())) {
+      await wait(settle)
+      return true
+    }
+
+    await wait(2000)
+  }
+
+  return false
+}
+
+// Dołączanie do serwera w dwóch krokach. Gdy klient już działa, sam adres
+// fivem:// wystarcza. Przy zimnym starcie najpierw uruchamiamy FiveM bez
+// argumentów, bo start z adresem potrafi wywalić przekazanie gry z Rockstar
+// Launchera ("This application should be launched directly from the shell...").
+export const launchFivem = async ({
+  address,
+  exePath,
+  openProtocol,
+  listProcesses = listProcessNames,
+  wait = sleep,
+  readyTimeout = 70000,
+  settle = 8000
+} = {}) => {
   const target = serverAddressArg(address)
 
   if (!target) {
     return {ok: false, error: "invalid_address"}
   }
 
-  if (typeof openProtocol === "function") {
+  const link = `fivem://connect/${target}`
+  const processes = await listProcesses()
+
+  if (isGameRunning(processes)) {
     try {
-      await openProtocol(`fivem://connect/${target}`)
-      return {ok: true, method: "protocol"}
+      await openProtocol(link)
+      return {ok: true, method: "running"}
     } catch (error) {
-      // Brak zarejestrowanego protokołu - próbujemy pliku gry.
+      return {ok: false, error: "launch_failed"}
     }
   }
 
   const exe = resolveFivemExe(exePath) || resolveFivemExe(DEFAULT_FIVEM_PATH)
 
-  if (exe && spawnDetached(exe, ["+connect", target])) {
-    return {ok: true, method: "process", exe}
+  if (!exe) {
+    try {
+      await openProtocol(link)
+      return {ok: true, method: "protocol"}
+    } catch (error) {
+      return {ok: false, error: "missing_exe"}
+    }
   }
 
-  return {ok: false, error: exe ? "launch_failed" : "missing_exe"}
+  if (!spawnDetached(exe, [])) {
+    try {
+      await openProtocol(link)
+      return {ok: true, method: "protocol"}
+    } catch (error) {
+      return {ok: false, error: "launch_failed"}
+    }
+  }
+
+  const ready = await waitForGame({listProcesses, wait, timeout: readyTimeout, settle})
+
+  try {
+    await openProtocol(link)
+    return {ok: true, method: ready ? "client" : "client_unready"}
+  } catch (error) {
+    // Klient i tak wystartował, więc gracz może dołączyć z listy serwerów.
+    return {ok: true, method: "client_manual"}
+  }
 }
 
 const requestJson = (url, timeout) =>
