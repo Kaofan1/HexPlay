@@ -15,6 +15,7 @@
  * dla repo wskazanego w build.publish.
  */
 const { execSync } = require('child_process');
+const crypto = require('crypto');
 const fs = require('fs');
 const https = require('https');
 const path = require('path');
@@ -22,6 +23,7 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '..', '..');
 const BRANCH = 'main';
 const VERSION_FILES = ['package.json', 'app/package.json', 'app/package-lock.json'];
+const ASSET_NAME = 'HexPlay-Launcher-Setup.exe';
 
 function log(step, message) {
   console.log(`\n\u001b[36m[${step}]\u001b[0m ${message}`);
@@ -50,6 +52,38 @@ function writeJson(file, value) {
     path.join(ROOT, file),
     `${JSON.stringify(value, null, 2)}\n`
   );
+}
+
+function sha256(filePath) {
+  return new Promise((resolve, reject) => {
+    const hash = crypto.createHash('sha256');
+    const stream = fs.createReadStream(filePath);
+    stream.on('error', reject);
+    stream.on('data', chunk => hash.update(chunk));
+    stream.on('end', () => resolve(hash.digest('hex')));
+  });
+}
+
+function buildNotes(version, fileName, checksum, { withHeading = true } = {}) {
+  const heading = withHeading ? [`Wydanie ${version} HexPlay Launcher.`, ''] : [];
+  return [
+    ...heading,
+    `Plik: ${fileName}`,
+    `SHA-256: ${checksum}`,
+    '',
+    'Suma SHA-256 pozwala sprawdzić, że pobrany plik jest dokładnie tym, który ' +
+      'opublikowaliśmy. W PowerShell uruchom:',
+    `Get-FileHash .\\${fileName} -Algorithm SHA256`,
+    'i porównaj wynik z sumą powyżej. Musi być identyczna, znak po znaku.',
+    '',
+    'Instalacja, gdy Windows pokaże ostrzeżenie SmartScreen:',
+    '1. W okienku ostrzeżenia kliknij "Więcej informacji".',
+    '2. Kliknij "Uruchom mimo to" i przeprowadź instalację do końca.',
+    '',
+    'Ostrzeżenie pojawia się, bo instalator nie jest podpisany certyfikatem ' +
+      'code signing, a nie dlatego, że plik jest uszkodzony lub zawiera wirusa. ' +
+      'Launcher i tak aktualizuje się sam, bez ręcznego pobierania.'
+  ].join('\n');
 }
 
 function parseVersion(raw) {
@@ -300,6 +334,7 @@ async function main() {
     console.log('  - yarn build');
     console.log('  - electron-builder --win nsis --x64 --publish never');
     console.log(`  - utworzenie release'u ${owner}/${repo} ${tag} i upload instalatora`);
+    console.log('  - suma SHA-256 instalatora i instrukcja instalacji w opisie release\'u');
     console.log('  - weryfikacja, że release nie zawiera latest.yml ani .blockmap');
     return;
   }
@@ -351,14 +386,8 @@ async function main() {
   }
 
   log('6/6', 'Tworzę release i wysyłam instalator');
-  const notes = [
-    `Wydanie ${version} HexPlay Launcher.`,
-    '',
-    'Auto-aktualizacja pobiera wyłącznie instalator z tego release\'u.',
-    '',
-    'Instalator jest niepodpisany. SmartScreen może pokazać ostrzeżenie ' +
-      '(„Więcej informacji” → „Uruchom mimo to”).'
-  ].join('\n');
+  const checksum = await sha256(installerPath);
+  const notes = buildNotes(version, ASSET_NAME, checksum);
 
   const existing = await findRelease(owner, repo, tag);
   let releaseId = existing ? existing.id : null;
@@ -366,12 +395,23 @@ async function main() {
   if (existing) {
     log('6/6', `Release ${tag} już istnieje, podmieniam instalator`);
     const oldInstaller = (existing.assets || []).find(
-      asset => asset.name === 'HexPlay-Launcher-Setup.exe'
+      asset => asset.name === ASSET_NAME
     );
     if (oldInstaller) {
       await githubRequest(
         `/repos/${owner}/${repo}/releases/assets/${oldInstaller.id}`,
         { method: 'DELETE' }
+      );
+    }
+    const updated = await githubRequest(
+      `/repos/${owner}/${repo}/releases/${releaseId}`,
+      { method: 'PATCH', body: JSON.stringify({ body: notes }) }
+    );
+    if (!updated.ok) {
+      fail(
+        `Nie mogę zaktualizować opisu release'u ${tag} (HTTP ${updated.status}): ${
+          updated.data.message || 'brak szczegółów'
+        }`
       );
     }
   } else {
@@ -401,7 +441,7 @@ async function main() {
     repo,
     releaseId,
     installerPath,
-    'HexPlay-Launcher-Setup.exe'
+    ASSET_NAME
   );
 
   if (!uploaded.ok) {
@@ -425,7 +465,7 @@ async function main() {
   if (!release) fail(`Nie znalazłem release'u ${tag} po publikacji.`);
 
   const assets = release.assets || [];
-  const installer = assets.find(asset => asset.name === 'HexPlay-Launcher-Setup.exe');
+  const installer = assets.find(asset => asset.name === ASSET_NAME);
   const forbidden = assets.filter(
     asset => asset.name === 'latest.yml' || /\.blockmap$/i.test(asset.name)
   );
@@ -450,6 +490,8 @@ if (require.main === module) {
 }
 
 module.exports = {
+  buildNotes,
+  sha256,
   parseVersion,
   formatVersion,
   bumpVersion,
