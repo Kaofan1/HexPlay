@@ -8,6 +8,7 @@
   width: 100%;
   height: 100%;
   overflow: hidden;
+  background-color: $color-background-primary;
   // Własny kontekst układania: tło nie miesza się z gradientem strony
   // i nie zostawia nieprzezroczystych warstw po Alt+Tab.
   z-index: 0;
@@ -33,8 +34,11 @@
 
   li {
     position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
+    overflow: hidden;
     color: transparent;
     background-size: cover;
     background-position: 50% 50%;
@@ -43,19 +47,18 @@
     opacity: 0;
     // Bez mix-blend-mode: blendowanie animowanych zdjęć i wideo potrafi
     // zostawić czarne lub nieprzezroczyste prostokąty po przełączeniu okna.
-    filter: grayscale(100%) contrast(1.2);
+    filter: grayscale(100%) contrast(1.05);
 
-    &.image {
-      bottom: -5%;
-      left: -5%;
-      width: 110%;
-      height: 110%;
-
-      img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-      }
+    // Media wypełniają dokładnie swój kontener. Bez powiększania warstwy
+    // i przesuwania jej w animacji obraz nie jest ciągle przeskalowywany,
+    // więc pozostaje ostry.
+    img,
+    video {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: 50% 50%;
     }
 
     // Statyczne tło przy wyłączonych animacjach
@@ -64,40 +67,17 @@
       animation: none;
     }
 
-    &.video {
-      width: 100%;
-      height: 100%;
-
-      video {
-        position: relative;
-        left: 50%;
-        transform: translateX(-50%);
-        height: 100%;
-        object-fit: cover;
-      }
-    }
-
     // Asset specific:
     &.filter_video1 {
-      filter: brightness(0.9) grayscale(100%) contrast(0.95);
+      filter: brightness(0.9) grayscale(100%) contrast(1.05);
     }
 
     &.filter_video2 {
-      filter: brightness(3) grayscale(100%) contrast(1.2);
-
-      video {
-        left: 25%;
-        transform: translateX(-25%);
-      }
+      filter: brightness(1.05) grayscale(100%) contrast(1.1);
     }
 
     &.filter_video3 {
-      filter: brightness(0.55) grayscale(100%) contrast(1.5);
-
-      video {
-        left: 60%;
-        transform: translateX(-60%);
-      }
+      filter: brightness(0.75) grayscale(100%) contrast(1.2);
     }
   }
 

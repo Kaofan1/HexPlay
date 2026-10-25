@@ -79,11 +79,13 @@ const Background = ({animated}) => {
   }
 
   const imageAnimation = "imageAnimation"
+  // Animujemy tylko przezroczystość. Przesuwanie powiększonej warstwy
+  // zmuszało Chromium do ciągłego przeskalowywania obrazu i wideo, przez
+  // co tło wyglądało na rozmazane.
   const imageAnimatonKeyframes = `
     @keyframes ${imageAnimation} {
       0% {
         opacity: 0;
-        transform: translateX(-5%);
       }
       ${5 * 4 / backgroundsList.length}% {
         opacity: 0.25;
@@ -93,7 +95,9 @@ const Background = ({animated}) => {
       }
       ${30 * 4 / backgroundsList.length}% {
         opacity: 0;
-        transform: translateX(5%);
+      }
+      100% {
+        opacity: 0;
       }
     }
   `
@@ -102,7 +106,6 @@ const Background = ({animated}) => {
     @keyframes ${videoAnimation} {
       0% {
         opacity: 0;
-        transform: translateX(-5%);
       }
       ${5 * 4 / backgroundsList.length}% {
         opacity: 0.35;
@@ -112,7 +115,9 @@ const Background = ({animated}) => {
       }
       ${30 * 4 / backgroundsList.length}% {
         opacity: 0;
-        transform: translateX(5%);
+      }
+      100% {
+        opacity: 0;
       }
     }
   `
