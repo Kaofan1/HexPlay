@@ -224,6 +224,12 @@ app.on('ready', async () => {
   updater.check(true);
   setInterval(() => updater.check(), UPDATE_CHECK_INTERVAL);
 
+  // Informacje o wersjach dla ustawień. Renderer nie widzi obiektu updatera,
+  // więc pobiera gotowy stan przez IPC.
+  ipcMain.handle('updater:state', () =>
+    updater ? updater.state() : null
+  );
+
   // Szybkie sprawdzenie obecności plików, bez liczenia rozmiaru cache.
   ipcMain.handle('fivem:inspect', (event, exePath) =>
     inspectInstall(fivemPathArg(exePath))

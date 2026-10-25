@@ -315,10 +315,27 @@ export default class GithubUpdater {
     this.checking = false
     this.downloaded = null
     this.lastCheck = 0
+    // Stan pokazywany w ustawieniach: najnowsza wersja z GitHuba oraz czas
+    // ostatniego udanego sprawdzenia.
+    this.latestVersion = null
+    this.lastCheckAt = 0
+    this.lastCheckError = null
   }
 
   isReady() {
     return this.downloaded !== null
+  }
+
+  state() {
+    return {
+      current: app.getVersion(),
+      latest: this.latestVersion,
+      lastCheckAt: this.lastCheckAt,
+      error: this.lastCheckError,
+      checking: this.checking,
+      ready: this.isReady(),
+      readyVersion: this.downloaded ? this.downloaded.version : null
+    }
   }
 
   installerPath() {
@@ -342,9 +359,12 @@ export default class GithubUpdater {
 
     try {
       await this.runCheck()
+      this.lastCheckAt = Date.now()
+      this.lastCheckError = null
     } catch (error) {
       // Brak internetu albo limit GitHub API nie może blokować launchera.
       log.warn("Update check failed: ", error.message)
+      this.lastCheckError = error.message
     } finally {
       this.checking = false
     }
@@ -356,6 +376,8 @@ export default class GithubUpdater {
     if (!release || !release.version) {
       return
     }
+
+    this.latestVersion = release.version
 
     const destination = path.join(
       app.getPath("userData"),

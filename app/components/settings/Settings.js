@@ -24,6 +24,38 @@ const formatBytes = (bytes) => {
   return `${value.toLocaleString("pl-PL", {maximumFractionDigits: index === 0 ? 0 : 1})} ${units[index]}`
 }
 
+const parseVersion = (raw) =>
+  String(raw || "")
+    .replace(/^v/i, "")
+    .split(".")
+    .map((part) => parseInt(part, 10) || 0)
+
+const isNewerVersion = (latest, current) => {
+  const latestParts = parseVersion(latest)
+  const currentParts = parseVersion(current)
+  const length = Math.max(latestParts.length, currentParts.length)
+
+  for (let index = 0; index < length; index += 1) {
+    const latestPart = latestParts[index] || 0
+    const currentPart = currentParts[index] || 0
+
+    if (latestPart !== currentPart) {
+      return latestPart > currentPart
+    }
+  }
+
+  return false
+}
+
+const formatDateTime = (timestamp) =>
+  new Date(timestamp).toLocaleString("pl-PL", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  })
+
 const Settings = ({
   fivemLocation,
   fivemInvalid,
@@ -42,6 +74,7 @@ const Settings = ({
   const [cacheBusy, setCacheBusy] = useState(false)
   const [cacheMessage, setCacheMessage] = useState("")
   const [confirmClear, setConfirmClear] = useState(false)
+  const [updateState, setUpdateState] = useState(null)
 
   // Sprawdzenie instalacji jest szybkie, a rozmiar cache liczy się
   // osobno w tle, żeby otwarcie ustawień nie zamrażało okna.
@@ -115,6 +148,29 @@ const Settings = ({
   useEffect(() => {
     refreshInstall()
   }, [fivemLocation])
+
+  // Stan auto-aktualizacji jest liczony w procesie głównym, więc pytamy
+  // o niego raz przy otwarciu ustawień.
+  useEffect(() => {
+    let active = true
+
+    ipcRenderer
+      .invoke("updater:state")
+      .then((state) => {
+        if (active) {
+          setUpdateState(state)
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setUpdateState(null)
+        }
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   useEffect(
     () => () => {
@@ -215,6 +271,48 @@ const Settings = ({
   const onSaveClick = (e) => {
     e.preventDefault()
     setSettingsActiveAction(false)
+  }
+
+  const installedVersion = (updateState && updateState.current) || remote.app.getVersion()
+
+  const latestVersionText = () => {
+    if (!updateState) {
+      return "Sprawdzanie…"
+    }
+
+    return updateState.latest || "nieznana"
+  }
+
+  const updateHintText = () => {
+    if (!updateState) {
+      return ""
+    }
+
+    if (!updateState.latest) {
+      return "Nie udało się odczytać najnowszej wersji z GitHuba."
+    }
+
+    if (updateState.readyVersion) {
+      return `Wersja ${updateState.readyVersion} jest gotowa do instalacji.`
+    }
+
+    if (isNewerVersion(updateState.latest, installedVersion)) {
+      return "Dostępna jest nowsza wersja. Launcher pobierze ją automatycznie."
+    }
+
+    return "Masz najnowszą wersję."
+  }
+
+  const lastCheckText = () => {
+    if (!updateState) {
+      return "Sprawdzanie…"
+    }
+
+    if (!updateState.lastCheckAt) {
+      return "jeszcze nie sprawdzono"
+    }
+
+    return formatDateTime(updateState.lastCheckAt)
   }
 
   const cacheText = () => {
@@ -349,6 +447,32 @@ const Settings = ({
           </div>
         </div>
       </section>
+      <section name="updates" className={settingsStyle.section}>
+        <div className={settingsStyle.title}>
+          <h2>Aktualizacje</h2>
+        </div>
+        <div className={settingsStyle.info}>
+          <div className={settingsStyle.infoRow}>
+            <span className={settingsStyle.infoLabel}>Zainstalowana wersja</span>
+            <span>{installedVersion}</span>
+          </div>
+          <div className={settingsStyle.infoRow}>
+            <span className={settingsStyle.infoLabel}>Najnowsza wersja</span>
+            <span>{latestVersionText()}</span>
+          </div>
+          <div className={settingsStyle.infoRow}>
+            <span className={settingsStyle.infoLabel}>Ostatnie sprawdzenie</span>
+            <span>{lastCheckText()}</span>
+          </div>
+          {updateHintText() && (
+            <div className={settingsStyle.meta}>
+              {updateHintText()}
+              {updateState && updateState.error &&
+                " Ostatnie sprawdzenie nie powiodło się, launcher spróbuje ponownie."}
+            </div>
+          )}
+        </div>
+      </section>
       <section name="exit" className={settingsStyle.section}>
         <Button
           to="/"
@@ -359,9 +483,6 @@ const Settings = ({
         </Button>
       </section>
       <section name="footnotes" className={settingsStyle.section}>
-        <div>
-          <span>{`Wersja aplikacji: ${remote.app.getVersion()}`}</span>
-        </div>
         <div>
           <span
             className={settingsStyle.credits}
