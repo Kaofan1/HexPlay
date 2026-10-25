@@ -15,6 +15,7 @@ const RELEASES_FEED_URL = `https://github.com/${OWNER}/${REPO}/releases.atom`
 const REQUEST_TIMEOUT = 60000
 const CHECK_COOLDOWN = 30 * 1000
 const RATE_LIMIT_BACKOFF = 5 * 60 * 1000
+const INSTALLER_FILE_PATTERN = /^HexPlay-Launcher-Setup-.*\.exe(\.part)?$/i
 
 // GitHub zwraca 304 dla zapytań z pasującym ETagiem, a takie odpowiedzi
 // nie liczą się do limitu API. Dzięki temu można sprawdzać częściej.
@@ -22,6 +23,45 @@ let latestReleaseETag = null
 
 // Do kiedy nie ma sensu pytać API, bo limit 60 zapytań na godzinę się skończył.
 let apiBlockedUntil = 0
+
+// Stare instalatory zostają na dysku po każdej aktualizacji, więc usuwamy
+// wszystkie pliki instalatora poza tym, który jest właśnie potrzebny.
+const pruneInstallerFolder = async (folder, keepPaths = []) => {
+  const keep = new Set(
+    keepPaths
+      .filter(Boolean)
+      .map(filePath => path.basename(filePath).toLowerCase())
+  )
+
+  let entries
+
+  try {
+    entries = await fs.promises.readdir(folder)
+  } catch (error) {
+    return 0
+  }
+
+  let removed = 0
+
+  for (const entry of entries) {
+    if (!INSTALLER_FILE_PATTERN.test(entry) || keep.has(entry.toLowerCase())) {
+      continue
+    }
+
+    try {
+      await fs.promises.unlink(path.join(folder, entry))
+      removed += 1
+    } catch (error) {
+      log.warn("Could not remove old update installer: ", error.message)
+    }
+  }
+
+  if (removed > 0) {
+    log.info(`Removed ${removed} old update installer(s).`)
+  }
+
+  return removed
+}
 
 const parseVersion = raw => String(raw || "").trim().replace(/^v/i, "").split(".").map(part => parseInt(part, 10) || 0)
 
@@ -317,13 +357,22 @@ export default class GithubUpdater {
       return
     }
 
+    const destination = path.join(
+      app.getPath("userData"),
+      "updates",
+      `HexPlay-Launcher-Setup-${release.version}.exe`
+    )
+
     if (!isNewer(release.version, app.getVersion())) {
+      // Launcher jest aktualny, więc żaden instalator nie jest już potrzebny.
+      await this.pruneOldInstallers()
       return
     }
 
     if (this.downloaded) {
       if (!isNewer(release.version, this.downloaded.version)) {
         // Czeka już instalator tej samej albo nowszej wersji.
+        await this.pruneOldInstallers(this.downloaded.path)
         return
       }
 
@@ -333,11 +382,7 @@ export default class GithubUpdater {
       this.discardInstaller()
     }
 
-    const destination = path.join(
-      app.getPath("userData"),
-      "updates",
-      `HexPlay-Launcher-Setup-${release.version}.exe`
-    )
+    await this.pruneOldInstallers(destination)
 
     if (fs.existsSync(destination)) {
       // Plik z poprzedniego uruchomienia sprawdzamy tak samo jak świeżo
@@ -378,6 +423,13 @@ export default class GithubUpdater {
     })
 
     this.setDownloaded(release.version, destination, release)
+  }
+
+  async pruneOldInstallers(keepPath) {
+    return pruneInstallerFolder(
+      path.join(app.getPath("userData"), "updates"),
+      [keepPath]
+    )
   }
 
   setDownloaded(version, installerPath, {size = 0, digest = null} = {}) {
