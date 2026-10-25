@@ -1,0 +1,229 @@
+[
+  {
+    "version": "1.0.19",
+    "date": "2026-10-25",
+    "added": [
+      "Sekcja Aktualności z historią zmian launchera.",
+      "Ikona Aktualności w nagłówku, obok ustawień."
+    ],
+    "changed": [
+      "Zmiany są pogrupowane na dodane, zmienione, naprawione i usunięte."
+    ],
+    "fixed": [],
+    "removed": []
+  },
+  {
+    "version": "1.0.18",
+    "date": "2026-10-25",
+    "added": [
+      "Sekcja Aktualizacje w ustawieniach: zainstalowana wersja, najnowsza wersja i data ostatniego sprawdzenia."
+    ],
+    "changed": [
+      "Wersja launchera nie jest już wyświetlana dwa razy w ustawieniach."
+    ],
+    "fixed": [
+      "Nieudane sprawdzenie aktualizacji nie jest pokazywane jako udane."
+    ],
+    "removed": []
+  },
+  {
+    "version": "1.0.17",
+    "date": "2026-10-25",
+    "added": [],
+    "changed": [
+      "Launcher czyści folder aktualizacji i zostawia tylko instalator, który jest potrzebny."
+    ],
+    "fixed": [
+      "Kolejne wersje nie zostawiają na dysku starych instalatorów po kilkadziesiąt megabajtów."
+    ],
+    "removed": []
+  },
+  {
+    "version": "1.0.16",
+    "date": "2026-10-25",
+    "added": [],
+    "changed": [
+      "Sprawdzanie aktualizacji trwa dalej, nawet gdy jakaś wersja czeka już na instalację."
+    ],
+    "fixed": [
+      "Przygotowany instalator jest zastępowany nowszym, więc nie trzeba instalować wersji po wersji."
+    ],
+    "removed": []
+  },
+  {
+    "version": "1.0.15",
+    "date": "2026-10-25",
+    "added": [
+      "Zapasowe sprawdzanie wersji przez kanał Atom GitHuba."
+    ],
+    "changed": [],
+    "fixed": [
+      "Wyczerpany limit GitHub API nie ukrywa już nowej wersji."
+    ],
+    "removed": []
+  },
+  {
+    "version": "1.0.14",
+    "date": "2026-10-25",
+    "added": [
+      "Sprawdzanie sumy SHA-256 pobranego instalatora przed uruchomieniem.",
+      "Suma kontrolna i instrukcja instalacji w opisie każdego wydania."
+    ],
+    "changed": [
+      "Uszkodzony lub podmieniony instalator nie jest uruchamiany."
+    ],
+    "fixed": [],
+    "removed": []
+  },
+  {
+    "version": "1.0.13",
+    "date": "2026-10-25",
+    "added": [],
+    "changed": [],
+    "fixed": [
+      "Zniekształcone i rozmazane obrazy animowanego tła."
+    ],
+    "removed": [
+      "Stare klipy wideo w tle, zastąpione ostrymi zdjęciami."
+    ]
+  },
+  {
+    "version": "1.0.12",
+    "date": "2026-10-25",
+    "added": [],
+    "changed": [],
+    "fixed": [
+      "Tło animowane traciło ostrość przy skalowaniu."
+    ],
+    "removed": []
+  },
+  {
+    "version": "1.0.11",
+    "date": "2026-10-25",
+    "added": [],
+    "changed": [
+      "Sprawdzanie instalacji FiveM nie blokuje już okna launchera."
+    ],
+    "fixed": [
+      "Launcher przestaje się zacinać na kilka sekund przy sprawdzaniu stanu instalacji."
+    ],
+    "removed": []
+  },
+  {
+    "version": "1.0.10",
+    "date": "2026-10-25",
+    "added": [
+      "Sprawdzanie i naprawa instalacji FiveM.",
+      "Czyszczenie cache FiveM z potwierdzeniem i zamknięciem gry.",
+      "Informacja o rozmiarze cache i skrót do folderu FiveM."
+    ],
+    "changed": [],
+    "fixed": [],
+    "removed": []
+  },
+  {
+    "version": "1.0.9",
+    "date": "2026-10-25",
+    "added": [],
+    "changed": [],
+    "fixed": [],
+    "removed": [
+      "Widoczny adres IP i port serwera w panelu akcji."
+    ]
+  },
+  {
+    "version": "1.0.8",
+    "date": "2026-10-25",
+    "added": [
+      "Automatyczne sprawdzanie aktualizacji co minutę."
+    ],
+    "changed": [
+      "Aktualizacja jest sprawdzana po powrocie z Alt+Tab."
+    ],
+    "fixed": [],
+    "removed": []
+  },
+  {
+    "version": "1.0.7",
+    "date": "2026-10-25",
+    "added": [],
+    "changed": [
+      "Launcher prowadzi na prawdziwy serwer HexPlay i do linków społeczności (Discord, strona)."
+    ],
+    "fixed": [
+      "Nieudaną publikację wydania można wznowić."
+    ],
+    "removed": []
+  },
+  {
+    "version": "1.0.6",
+    "date": "2026-10-24",
+    "added": [
+      "Ustawienie wyłączania animowanego tła dla słabszych komputerów."
+    ],
+    "changed": [],
+    "fixed": [],
+    "removed": []
+  },
+  {
+    "version": "1.0.5",
+    "date": "2026-10-24",
+    "added": [
+      "Pobieranie aktualizacji przez sieć Electrona."
+    ],
+    "changed": [
+      "Wydanie zawiera tylko instalator, bez plików pomocniczych."
+    ],
+    "fixed": [
+      "Aktualizacja nie otwiera drugiego okna launchera."
+    ],
+    "removed": []
+  },
+  {
+    "version": "1.0.4",
+    "date": "2026-10-24",
+    "added": [],
+    "changed": [],
+    "fixed": [
+      "Tło nie zamarza i nie robi się nieprzezroczyste po Alt+Tab."
+    ],
+    "removed": []
+  },
+  {
+    "version": "1.0.3",
+    "date": "2026-10-24",
+    "added": [
+      "Aktualizacja pojawia się od razu w działającym launcherze.",
+      "Przed instalacją launcher rozłącza FiveM z serwera."
+    ],
+    "changed": [],
+    "fixed": [],
+    "removed": []
+  },
+  {
+    "version": "1.0.2",
+    "date": "2026-10-24",
+    "added": [
+      "Polska wersja interfejsu."
+    ],
+    "changed": [
+      "Instalator ma stałą nazwę HexPlay Launcher Setup.exe."
+    ],
+    "fixed": [],
+    "removed": []
+  },
+  {
+    "version": "1.0.1",
+    "date": "2026-10-24",
+    "added": [
+      "Pierwsze wydanie launchera.",
+      "Automatyczne aktualizacje przez GitHub Releases.",
+      "Nowa ikona aplikacji."
+    ],
+    "changed": [],
+    "fixed": [
+      "Uruchamianie aplikacji na Electron 8."
+    ],
+    "removed": []
+  }
+]

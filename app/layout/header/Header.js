@@ -2,6 +2,7 @@ import React from "react"
 import {Link} from "react-router-dom"
 
 import Updater from "../../components/updater/Updater"
+import NewsControl from "../../components/news/NewsControl"
 import SettingsControl from "../../components/settings/SettingsControl"
 import WindowControls from "../../components/window-controls/WindowControls"
 
@@ -12,6 +13,9 @@ const Header = () => {
     <header className={headerStyle.bar}>
       <div className={headerStyle.updater}>
         <Updater />
+      </div>
+      <div className={headerStyle.news}>
+        <NewsControl />
       </div>
       <div className={headerStyle.settings}>
         <SettingsControl />

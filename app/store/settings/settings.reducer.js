@@ -4,6 +4,7 @@ import {
   SET_FIVEM_INVALID,
   SET_ANIMATED_BACKGROUND
 } from "./settings.actions"
+import {SET_NEWS_ACTIVE} from "../news/news.actions"
 
 import {getSettingsConfig} from "../../utils/settings-storage/settingsStorage"
 import settings from "../../configuration/settings.json"
@@ -33,6 +34,16 @@ export default function (state = initialState, action) {
         ...state,
         animatedBackground: action.payload
       }
+    case SET_NEWS_ACTIVE:
+      // Otwarcie Aktualności zamyka ustawienia, bo oba panele dzielą miejsce.
+      if (action.payload) {
+        return {
+          ...state,
+          active: false
+        }
+      }
+
+      return state
     case SET_FIVEM_INVALID:
       if (action.payload) {
         return {

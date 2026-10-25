@@ -1,0 +1,96 @@
+@import "../../styles/colors.scss";
+
+/* Aktualności */
+.intro {
+  margin-bottom: 3rem;
+
+  h2 {
+    margin-bottom: 0.8rem;
+    color: $color-text-secondary;
+  }
+
+  p {
+    color: $color-text-secondary;
+    font-size: 1.3rem;
+  }
+}
+
+.release {
+  margin-bottom: 3rem;
+
+  &:last-of-type {
+    margin-bottom: 4rem;
+  }
+
+  .head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding-bottom: 0.8rem;
+    border-bottom: 1px solid $color-border;
+
+    h3 {
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
+
+    span {
+      color: $color-text-secondary;
+      font-size: 1.2rem;
+    }
+  }
+
+  .group {
+    margin-top: 1.2rem;
+  }
+
+  .label {
+    margin-bottom: 0.5rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .added {
+    color: #34d399;
+  }
+
+  .changed {
+    color: #60a5fa;
+  }
+
+  .fixed {
+    color: #fbbf24;
+  }
+
+  .removed {
+    color: $color-danger;
+  }
+
+  .list {
+    margin: 0;
+    padding-left: 1.6rem;
+
+    li {
+      color: $color-text-secondary;
+      font-size: 1.3rem;
+      line-height: 1.45;
+
+      & + li {
+        margin-top: 0.5rem;
+      }
+    }
+  }
+
+  .empty {
+    margin-top: 1rem;
+    color: $color-text-secondary;
+    font-size: 1.3rem;
+  }
+}
+
+.exit {
+  margin-top: auto;
+  padding-top: 1rem;
+}
