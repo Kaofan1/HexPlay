@@ -11,9 +11,15 @@ const FIVEM_PROCESS_NAME = /^FiveM.*\.exe$/i
 const GRACE_PERIOD = 4000
 
 const run = (command, args) => new Promise(resolve => {
-  execFile(command, args, {windowsHide: true, maxBuffer: 8 * 1024 * 1024}, (error, stdout) => {
-    resolve({error, stdout: stdout || ""})
-  })
+  execFile(
+    command,
+    args,
+    // Limit czasu chroni launcher, gdy system nie odpowiada na tasklist/taskkill.
+    {windowsHide: true, maxBuffer: 8 * 1024 * 1024, timeout: 10000},
+    (error, stdout) => {
+      resolve({error, stdout: stdout || ""})
+    }
+  )
 })
 
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms))

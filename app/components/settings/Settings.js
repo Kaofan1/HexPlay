@@ -33,27 +33,96 @@ const Settings = ({
   setSettingsActiveAction
 }) => {
   const fivemField = useRef();
+  const requestRef = useRef(0)
+  const clearActiveRef = useRef(false)
   const [installInfo, setInstallInfo] = useState(null)
   const [installBusy, setInstallBusy] = useState(false)
+  const [cacheSize, setCacheSize] = useState({state: "idle", bytes: 0, complete: true})
+  const [running, setRunning] = useState(false)
   const [cacheBusy, setCacheBusy] = useState(false)
   const [cacheMessage, setCacheMessage] = useState("")
   const [confirmClear, setConfirmClear] = useState(false)
 
-  const refreshInstall = async () => {
+  // Sprawdzenie instalacji jest szybkie, a rozmiar cache liczy się
+  // osobno w tle, żeby otwarcie ustawień nie zamrażało okna.
+  const refreshInstall = async (force = false) => {
+    const requestId = requestRef.current + 1
+    requestRef.current = requestId
+
     setInstallBusy(true)
 
     try {
-      setInstallInfo(await ipcRenderer.invoke("fivem:inspect", fivemLocation))
-    } catch (error) {
-      setInstallInfo(null)
-    } finally {
+      const info = await ipcRenderer.invoke("fivem:inspect", fivemLocation)
+
+      if (requestRef.current !== requestId) {
+        return
+      }
+
+      setInstallInfo(info)
       setInstallBusy(false)
+
+      if (!info.found) {
+        setCacheSize({state: "idle", bytes: 0, complete: true})
+        setRunning(false)
+        return
+      }
+
+      setCacheSize((current) => ({...current, state: "loading"}))
+
+      const sizePromise = ipcRenderer
+        .invoke("fivem:cache-size", {exePath: fivemLocation, force})
+        .then((size) => {
+          if (requestRef.current !== requestId || !size || size.cancelled) {
+            return
+          }
+
+          if (!size.ok) {
+            setCacheSize({state: "idle", bytes: 0, complete: true})
+            return
+          }
+
+          setCacheSize({state: "ready", bytes: size.bytes, complete: size.complete})
+        })
+        .catch(() => {
+          if (requestRef.current === requestId) {
+            setCacheSize({state: "idle", bytes: 0, complete: true})
+          }
+        })
+
+      await sizePromise
+
+      // Sprawdzanie procesów uruchamia tasklist, więc robimy je dopiero
+      // po zmierzeniu cache, żeby nie obciążać dysku i procesora naraz.
+      try {
+        const isRunning = await ipcRenderer.invoke("fivem:process-state")
+
+        if (requestRef.current === requestId) {
+          setRunning(!!isRunning)
+        }
+      } catch (error) {
+        if (requestRef.current === requestId) {
+          setRunning(false)
+        }
+      }
+    } catch (error) {
+      if (requestRef.current === requestId) {
+        setInstallInfo(null)
+        setInstallBusy(false)
+      }
     }
   }
 
   useEffect(() => {
     refreshInstall()
   }, [fivemLocation])
+
+  useEffect(
+    () => () => {
+      // Starsze odpowiedzi nie mogą już zmieniać stanu po zamknięciu ustawień.
+      requestRef.current += 1
+    },
+    []
+  )
 
   useEffect(() => {
     if (!confirmClear) {
@@ -64,8 +133,26 @@ const Settings = ({
     return () => clearTimeout(timer)
   }, [confirmClear])
 
+  useEffect(() => {
+    const onProgress = (event, data) => {
+      // Późne komunikaty nie mogą nadpisać wyniku po zakończeniu czyszczenia.
+      if (clearActiveRef.current && data && data.total) {
+        setCacheMessage(`Czyszczenie cache: ${data.label} (${data.done}/${data.total})`)
+      }
+    }
+
+    ipcRenderer.on("fivem-cache-progress", onProgress)
+
+    return () => ipcRenderer.removeListener("fivem-cache-progress", onProgress)
+  }, [])
+
   const onOpenFolderClick = () => {
     ipcRenderer.invoke("fivem:open-folder", fivemLocation)
+  }
+
+  const onRefreshClick = () => {
+    setCacheMessage("")
+    refreshInstall(true)
   }
 
   const onClearCacheClick = async () => {
@@ -81,13 +168,19 @@ const Settings = ({
 
     setConfirmClear(false)
     setCacheBusy(true)
+    clearActiveRef.current = true
     setCacheMessage("Zamykanie FiveM i czyszczenie cache…")
 
     try {
       const result = await ipcRenderer.invoke("fivem:clear-cache", fivemLocation)
+      clearActiveRef.current = false
 
       if (!result.ok) {
-        setCacheMessage("Nie udało się wyczyścić cache. Sprawdź lokalizację FiveM.")
+        setCacheMessage(
+          result.error === "busy"
+            ? "Czyszczenie już trwa. Poczekaj na zakończenie."
+            : "Nie udało się wyczyścić cache. Sprawdź lokalizację FiveM."
+        )
       } else if (result.errors && result.errors.length > 0) {
         setCacheMessage(
           `Usunięto ${formatBytes(result.freedBytes)}, ale części plików nie udało się usunąć.`
@@ -97,12 +190,13 @@ const Settings = ({
       } else {
         setCacheMessage("Cache było już puste.")
       }
-
-      setInstallInfo(await ipcRenderer.invoke("fivem:inspect", fivemLocation))
     } catch (error) {
+      clearActiveRef.current = false
       setCacheMessage("Nie udało się wyczyścić cache. Spróbuj ponownie.")
     } finally {
+      clearActiveRef.current = false
       setCacheBusy(false)
+      refreshInstall(true)
     }
   }
 
@@ -121,6 +215,18 @@ const Settings = ({
   const onSaveClick = (e) => {
     e.preventDefault()
     setSettingsActiveAction(false)
+  }
+
+  const cacheText = () => {
+    if (cacheSize.state === "loading") {
+      return "Cache: liczenie…"
+    }
+
+    if (cacheSize.state === "ready") {
+      return `Cache: ${cacheSize.complete ? "" : "co najmniej "}${formatBytes(cacheSize.bytes)}`
+    }
+
+    return "Cache: nie sprawdzono"
   }
 
   return (
@@ -160,7 +266,7 @@ const Settings = ({
           <div
             className={settingsStyle.action}
             title="Sprawdź ponownie"
-            onClick={() => refreshInstall()}
+            onClick={() => !(installBusy || cacheBusy) && onRefreshClick()}
           >
             <i className="material-icon">refresh</i>
           </div>
@@ -175,10 +281,8 @@ const Settings = ({
                 <i className="material-icon">check_circle</i>
                 <span>FiveM znaleziony</span>
               </div>
-              <div className={settingsStyle.meta}>
-                {`Cache: ${formatBytes(installInfo.cacheBytes)}`}
-              </div>
-              {installInfo.running && (
+              <div className={settingsStyle.meta}>{cacheText()}</div>
+              {running && (
                 <div className={settingsStyle.meta}>
                   FiveM jest uruchomiony. Czyszczenie cache go zamknie.
                 </div>
@@ -195,8 +299,8 @@ const Settings = ({
         <div className={settingsStyle.actions}>
           <div
             className={settingsStyle.actionButton}
-            data-disabled={installBusy}
-            onClick={() => !installBusy && refreshInstall()}
+            data-disabled={installBusy || cacheBusy}
+            onClick={() => !(installBusy || cacheBusy) && onRefreshClick()}
           >
             Sprawdź
           </div>
@@ -212,7 +316,7 @@ const Settings = ({
             data-disabled={cacheBusy || !installInfo || !installInfo.found}
             onClick={() => !(cacheBusy || !installInfo || !installInfo.found) && onClearCacheClick()}
           >
-            {confirmClear ? "Potwierdź czyszczenie" : "Wyczyść cache"}
+            {cacheBusy ? "Czyszczenie…" : confirmClear ? "Potwierdź czyszczenie" : "Wyczyść cache"}
           </div>
         </div>
         {cacheMessage && (

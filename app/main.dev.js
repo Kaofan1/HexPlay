@@ -17,7 +17,7 @@ import fs from "fs";
 
 import fivemLocationParser from "./utils/parsers/fivemLocationParser";
 import closeFivem, {listFivemProcessIds} from "./utils/fivem-process/closeFivem";
-import {inspectInstall, clearCache} from "./utils/fivem-install/fivemInstall";
+import {inspectInstall, measureCache, clearCache} from "./utils/fivem-install/fivemInstall";
 import GithubUpdater from "./utils/updater/githubUpdater";
 
 const UPDATE_CHECK_INTERVAL = 60 * 1000;
@@ -33,6 +33,12 @@ const sendStatusToWindow = (status, message, extra = {}) => {
 
 let updater = null;
 let updateInstallStarted = false;
+
+let processStateCache = {at: 0, running: false};
+let cacheClearInProgress = false;
+
+const fivemPathArg = (value) =>
+  typeof value === 'string' && value.length <= 1024 ? value : '';
 
 // Przed instalacją aktualizacji zamykamy FiveM, żeby gracz nie został
 // na serwerze ze starą wersją launchera.
@@ -195,34 +201,77 @@ app.on('ready', async () => {
   updater.check(true);
   setInterval(() => updater.check(), UPDATE_CHECK_INTERVAL);
 
-  ipcMain.handle('fivem:inspect', async (event, exePath) => {
-    const info = inspectInstall(exePath);
-    let running = [];
+  // Szybkie sprawdzenie obecności plików, bez liczenia rozmiaru cache.
+  ipcMain.handle('fivem:inspect', (event, exePath) =>
+    inspectInstall(fivemPathArg(exePath))
+  );
 
-    try {
-      running = await listFivemProcessIds();
-    } catch (error) {
-      log.warn('Could not list FiveM processes:', error.message);
+  // Rozmiar cache jest liczony asynchronicznie i z limitem czasu,
+  // więc nie blokuje wątku głównego ani animacji okna.
+  ipcMain.handle('fivem:cache-size', (event, payload = {}) =>
+    measureCache(fivemPathArg(payload.exePath), {force: !!payload.force})
+  );
+
+  // Sprawdzanie procesów FiveM jest kosztowne (tasklist), więc wynik
+  // jest trzymany przez kilka sekund.
+  ipcMain.handle('fivem:process-state', async () => {
+    if (Date.now() - processStateCache.at < 5000) {
+      return processStateCache.running;
     }
 
-    return {...info, running: running.length > 0};
+    try {
+      const ids = await listFivemProcessIds();
+      processStateCache = {at: Date.now(), running: ids.length > 0};
+    } catch (error) {
+      log.warn('Could not list FiveM processes:', error.message);
+      processStateCache = {at: Date.now(), running: false};
+    }
+
+    return processStateCache.running;
   });
 
   ipcMain.handle('fivem:clear-cache', async (event, exePath) => {
-    let closed = false;
-
-    try {
-      // Pliki cache są zablokowane przez działający klient, więc najpierw go zamykamy.
-      closed = await closeFivem();
-    } catch (error) {
-      log.warn('Could not close FiveM before clearing cache:', error.message);
+    if (cacheClearInProgress) {
+      return {
+        ok: false,
+        error: 'busy',
+        freedBytes: 0,
+        removedEntries: 0,
+        targets: [],
+        errors: []
+      };
     }
 
-    return {...clearCache(exePath), closed};
+    cacheClearInProgress = true;
+
+    try {
+      let closed = false;
+
+      try {
+        // Pliki cache są zablokowane przez działający klient, więc najpierw go zamykamy.
+        closed = await closeFivem();
+      } catch (error) {
+        log.warn('Could not close FiveM before clearing cache:', error.message);
+      }
+
+      const result = await clearCache(fivemPathArg(exePath), {
+        onProgress: (progress) => {
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('fivem-cache-progress', progress);
+          }
+        }
+      });
+
+      processStateCache = {at: Date.now(), running: false};
+
+      return {...result, closed};
+    } finally {
+      cacheClearInProgress = false;
+    }
   });
 
   ipcMain.handle('fivem:open-folder', (event, exePath) => {
-    const info = inspectInstall(exePath);
+    const info = inspectInstall(fivemPathArg(exePath));
     const target = info.folderExists ? info.dataDir : info.installDir;
 
     if (!target || !fs.existsSync(target)) {
