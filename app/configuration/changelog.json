@@ -1,5 +1,18 @@
 [
   {
+    "version": "1.0.26",
+    "date": "2026-10-26",
+    "added": [
+      "Etap pobierania plików serwera pod przyciskiem Dołącz do serwera, z paskiem postępu i licznikiem zasobów.",
+      "Ostrzeżenie, gdy pobieranie plików serwera nie posuwa się przez dłuższy czas."
+    ],
+    "changed": [
+      "Postęp pobierania pochodzi z logu FiveM, więc pokazuje rzeczywisty etap zamiast szacunków."
+    ],
+    "fixed": [],
+    "removed": []
+  },
+  {
     "version": "1.0.25",
     "date": "2026-10-26",
     "added": [

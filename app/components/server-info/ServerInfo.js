@@ -16,6 +16,32 @@ import PlayerCard from "../player-card/PlayerCard"
 
 import serverInfoStyle from "./ServerInfo.module.scss"
 
+// Opis etapu pobierania pochodzi z logu FiveM, a nie z szacunków, więc
+// pokazujemy tylko to, co klient faktycznie zaraportował.
+const downloadLabel = (download) => {
+  if (!download) {
+    return ""
+  }
+
+  if (download.phase === "manifest") {
+    return "Pobieranie listy plików serwera…"
+  }
+
+  if (download.phase === "downloading") {
+    if (download.current && download.total) {
+      return `Pobieranie plików serwera (${download.current} z ${download.total})`
+    }
+
+    return "Pobieranie plików serwera…"
+  }
+
+  if (download.phase === "loading") {
+    return "Pliki pobrane, wczytywanie serwera…"
+  }
+
+  return "Uruchamianie FiveM…"
+}
+
 const ServerInfo = ({
   serverId,
   serversList,
@@ -39,6 +65,7 @@ const ServerInfo = ({
   const [joining, setJoining] = useState(false)
   const [joinMessage, setJoinMessage] = useState("")
   const [joinLogPath, setJoinLogPath] = useState("")
+  const [download, setDownload] = useState(null)
 
   useEffect(() => {
     updateServerStatusAction(server.id)
@@ -47,6 +74,26 @@ const ServerInfo = ({
     }, 20000)
     return () => clearTimeout(refreshCooldown);
   }, [timer])
+
+  useEffect(() => {
+    const onDownload = (event, data) => {
+      if (!data || !data.active) {
+        setDownload(null)
+
+        if (data && data.phase === "done") {
+          setJoinMessage("Pliki serwera pobrane, FiveM wczytuje serwer…")
+        }
+
+        return
+      }
+
+      setDownload(data)
+    }
+
+    ipcRenderer.on("fivem-download", onDownload)
+
+    return () => ipcRenderer.removeListener("fivem-download", onDownload)
+  }, [])
 
   useEffect(() => {
     const onStatus = (event, data) => {
@@ -76,6 +123,7 @@ const ServerInfo = ({
     setJoining(true)
     setJoinMessage("Uruchamianie FiveM…")
     setJoinLogPath("")
+    setDownload(null)
 
     try {
       const result = await ipcRenderer.invoke("fivem:join", {
@@ -146,6 +194,39 @@ const ServerInfo = ({
               </Button>
               {joinMessage && (
                 <div className={serverInfoStyle.description}>{joinMessage}</div>
+              )}
+              {download && (
+                <div className={serverInfoStyle.download}>
+                  <div className={serverInfoStyle.downloadHead}>
+                    <span>{downloadLabel(download)}</span>
+                    {typeof download.percent === "number" && (
+                      <span>{download.percent}%</span>
+                    )}
+                  </div>
+                  <div
+                    className={`${serverInfoStyle.downloadTrack}${
+                      typeof download.percent === "number"
+                        ? ""
+                        : ` ${serverInfoStyle.downloadTrackIndeterminate}`
+                    }`}
+                  >
+                    <div
+                      className={serverInfoStyle.downloadFill}
+                      style={
+                        typeof download.percent === "number"
+                          ? {width: `${download.percent}%`}
+                          : undefined
+                      }
+                    />
+                  </div>
+                  {download.stalled && (
+                    <div className={serverInfoStyle.downloadHint}>
+                      Pobieranie nie posuwa się od{" "}
+                      {Math.max(1, Math.round(download.stalledFor / 1000))} s.
+                      Sprawdź połączenie z internetem albo uruchom FiveM ponownie.
+                    </div>
+                  )}
+                </div>
               )}
               {joinLogPath && (
                 <Button

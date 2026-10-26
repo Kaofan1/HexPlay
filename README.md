@@ -12,6 +12,7 @@ FiveM w swoim regulaminie ogranicza zewnętrzne launchery i sposoby łączenia s
 
 - **Wybór wielu serwerów**: lista z `servers.json`, przycisk „Join server” dla każdego z nich.
 - **Status i gracze online**: odświeżanie co 20 s na podstawie `/info.json` i `/players.json` serwera.
+- **Postęp pobierania serwera**: po kliknięciu „Dołącz do serwera” launcher pokazuje etap pobierania plików z licznikiem zasobów i ostrzega, gdy pobieranie stoi.
 - **Linki społeczności**: dowolna liczba przycisków (Discord, forum, Teamspeak itd.).
 - **Tła**: pokaz slajdów ze zdjęć w wysokiej rozdzielczości; pauza, gdy okno traci focus.
 - **Automatyczne aktualizacje**: GitHub API + instalator NSIS.

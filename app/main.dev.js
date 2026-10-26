@@ -29,6 +29,7 @@ import {
   fetchServerStatus
 } from "./utils/fivem-connection/fivemConnection";
 import {saveJoinLog, openSavedLog} from "./utils/fivem-log/fivemLog";
+import {startDownloadMonitor} from "./utils/fivem-download/downloadProgress";
 
 const UPDATE_CHECK_INTERVAL = 60 * 1000;
 const FIVEM_CLOSE_TIMEOUT = 15000;
@@ -46,6 +47,36 @@ let updateInstallStarted = false;
 
 let processStateCache = {at: 0, running: false};
 let cacheClearInProgress = false;
+let downloadMonitor = null;
+
+// Postęp pobierania zasobów serwera czytamy z logu FiveM. Monitor dostaje
+// tylko nowe wpisy, więc nie skanuje dysku i nie blokuje okna.
+const sendDownloadState = (state) => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('fivem-download', state);
+  }
+};
+
+const stopDownloadMonitor = () => {
+  if (!downloadMonitor) {
+    return;
+  }
+
+  const monitor = downloadMonitor;
+  downloadMonitor = null;
+  monitor.stop();
+};
+
+const watchServerDownload = (exePath) => {
+  stopDownloadMonitor();
+  downloadMonitor = startDownloadMonitor({
+    exePath,
+    onUpdate: sendDownloadState,
+    onStop: () => {
+      downloadMonitor = null;
+    }
+  });
+};
 
 // Kopie logów FiveM trzymamy w folderze danych launchera, a nie w folderze gry.
 const joinLogsDir = () => path.join(app.getPath('userData'), 'logs');
@@ -73,6 +104,7 @@ const startCrashWatch = ({address, exePath}) => {
     probe: probeFivemProcessIds,
     onCrash: () => {
       stopCrashWatch = null;
+      stopDownloadMonitor();
 
       let logPath = null;
 
@@ -138,6 +170,8 @@ const installUpdate = async () => {
   }
 
   sendStatusToWindow('update_installing', 'Zamykanie FiveM i instalowanie aktualizacji…');
+
+  stopDownloadMonitor();
   cancelCrashWatch();
 
   try {
@@ -338,6 +372,7 @@ app.on('ready', async () => {
 
     cacheClearInProgress = true;
     cancelCrashWatch();
+    stopDownloadMonitor();
 
     try {
       let closed = false;
@@ -388,9 +423,11 @@ app.on('ready', async () => {
     if (result.ok) {
       log.info(`Join ${payload.address}: launched through ${result.method}.`);
       startCrashWatch({address: payload.address, exePath: payload.exePath});
+      watchServerDownload(payload.exePath);
       return result;
     }
 
+    stopDownloadMonitor();
     log.warn(`Join ${payload.address} failed: ${result.error}.`);
 
     // Nieudane dołączenie zapisujemy razem z logiem FiveM, żeby gracz miał
@@ -465,6 +502,8 @@ app.on('ready', async () => {
 
 // Zamknięcie launchera z pobraną aktualizacją też najpierw rozłącza FiveM.
 app.on('before-quit', event => {
+  stopDownloadMonitor();
+
   if (!updater || !updater.isReady() || updateInstallStarted) {
     return;
   }
