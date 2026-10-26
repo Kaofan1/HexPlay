@@ -16,7 +16,11 @@ import {spawn, exec, execFile, fork} from "child_process";
 import fs from "fs";
 import path from "path";
 
-import closeFivem, {listFivemProcessIds} from "./utils/fivem-process/closeFivem";
+import closeFivem, {
+  listFivemProcessIds,
+  probeFivemProcessIds
+} from "./utils/fivem-process/closeFivem";
+import {watchFivemCrash} from "./utils/fivem-process/watchFivemCrash";
 import {inspectInstall, measureCache, clearCache} from "./utils/fivem-install/fivemInstall";
 import GithubUpdater from "./utils/updater/githubUpdater";
 import {
@@ -48,6 +52,52 @@ const joinLogsDir = () => path.join(app.getPath('userData'), 'logs');
 
 const fivemPathArg = (value) =>
   typeof value === 'string' && value.length <= 1024 ? value : '';
+
+let stopCrashWatch = null;
+
+// Zatrzymuje obserwację przed świadomym zamknięciem gry, żeby aktualizacja
+// albo czyszczenie cache nie zostały zgłoszone jako crash.
+const cancelCrashWatch = () => {
+  if (stopCrashWatch) {
+    stopCrashWatch();
+    stopCrashWatch = null;
+  }
+};
+
+// Po udanym dołączeniu pilnujemy, czy FiveM nie zamknął się zaraz po starcie.
+// Jeśli tak, zapisujemy log i pokazujemy w oknie komunikat z przyciskiem.
+const startCrashWatch = ({address, exePath}) => {
+  cancelCrashWatch();
+
+  stopCrashWatch = watchFivemCrash({
+    probe: probeFivemProcessIds,
+    onCrash: () => {
+      stopCrashWatch = null;
+
+      let logPath = null;
+
+      try {
+        logPath = saveJoinLog({
+          exePath,
+          address: serverAddressArg(address),
+          error: 'FiveM zamknął się po dołączeniu do serwera',
+          method: 'watch',
+          logsDir: joinLogsDir()
+        });
+      } catch (error) {
+        log.warn('Could not save FiveM log after crash:', error.message);
+      }
+
+      log.warn(`FiveM closed shortly after joining ${serverAddressArg(address)}.`);
+
+      sendStatusToWindow(
+        'fivem_crash',
+        'FiveM zamknął się tuż po dołączeniu. Jeśli to był crash, otwórz log FiveM.',
+        {logPath}
+      );
+    }
+  });
+};
 
 // Przed instalacją aktualizacji zamykamy FiveM, żeby gracz nie został
 // na serwerze ze starą wersją launchera.
@@ -88,6 +138,7 @@ const installUpdate = async () => {
   }
 
   sendStatusToWindow('update_installing', 'Zamykanie FiveM i instalowanie aktualizacji…');
+  cancelCrashWatch();
 
   try {
     await Promise.race([
@@ -286,6 +337,7 @@ app.on('ready', async () => {
     }
 
     cacheClearInProgress = true;
+    cancelCrashWatch();
 
     try {
       let closed = false;
@@ -335,6 +387,7 @@ app.on('ready', async () => {
 
     if (result.ok) {
       log.info(`Join ${payload.address}: launched through ${result.method}.`);
+      startCrashWatch({address: payload.address, exePath: payload.exePath});
       return result;
     }
 

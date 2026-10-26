@@ -24,15 +24,17 @@ const run = (command, args) => new Promise(resolve => {
 
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms))
 
-export const listFivemProcessIds = async () => {
+export const probeFivemProcessIds = async () => {
   if (process.platform !== "win32") {
-    return []
+    return null
   }
 
   const {error, stdout} = await run("tasklist", ["/FO", "CSV", "/NH"])
 
+  // null odróżnia błąd systemu od braku procesów. Bez tego chwilowa awaria
+  // tasklist wyglądałaby jak zamknięcie gry.
   if (error) {
-    return []
+    return null
   }
 
   return stdout.split(/\r?\n/).reduce((ids, line) => {
@@ -45,6 +47,9 @@ export const listFivemProcessIds = async () => {
     return ids
   }, [])
 }
+
+export const listFivemProcessIds = async () =>
+  (await probeFivemProcessIds()) || []
 
 const closeFivem = async () => {
   const processIds = await listFivemProcessIds()

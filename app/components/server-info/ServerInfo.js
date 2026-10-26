@@ -53,6 +53,12 @@ const ServerInfo = ({
       if (data.status === "fivem_invalid") {
         setFivemInvalidAction(true)
       }
+
+      // Proces główny zauważył, że gra zniknęła chwilę po dołączeniu.
+      if (data.status === "fivem_crash") {
+        setJoinMessage(data.message || "FiveM zamknął się tuż po dołączeniu.")
+        setJoinLogPath(data.logPath || "")
+      }
     }
 
     ipcRenderer.on("status", onStatus)

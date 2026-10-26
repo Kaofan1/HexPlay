@@ -1,5 +1,17 @@
 [
   {
+    "version": "1.0.25",
+    "date": "2026-10-26",
+    "added": [
+      "Wykrywanie zamknięcia FiveM w chwilę po dołączeniu do serwera, z komunikatem i przyciskiem Otwórz log FiveM."
+    ],
+    "changed": [
+      "Zamknięcie gry przez launcher przy aktualizacji lub czyszczeniu cache nie jest już traktowane jak crash."
+    ],
+    "fixed": [],
+    "removed": []
+  },
+  {
     "version": "1.0.24",
     "date": "2026-10-25",
     "added": [
