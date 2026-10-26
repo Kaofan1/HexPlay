@@ -1,7 +1,7 @@
 {
   "name": "hexplay-launcher",
   "productName": "hexplay-launcher",
-  "version": "1.0.24",
+  "version": "1.0.25",
   "description": "Custom FiveM launcher for HexPlay",
   "main": "./main.prod.js",
   "author": {
